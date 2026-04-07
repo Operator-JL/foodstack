@@ -1,13 +1,14 @@
-from flask import Flask, render_template, redirect, url_for
-import os
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-app.secret_key = "secret_key"
-
 @app.route("/")
 def home():
-   return '<label>Hello!</label>'
+    return "FoodStack API Running"
 
-if __name__ == '__main__':
-   app.run(debug=True)
+@app.route("/api/test")
+def test():
+    return jsonify({
+        "status": "ok",
+        "message": "API funcionando"
+    })
