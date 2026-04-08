@@ -1,0 +1,23 @@
+.menu-layout {
+  display: grid;
+  gap: 1.45rem;
+}
+
+.menu-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(232, 189, 136, 0.8);
+  background: linear-gradient(180deg, #fff7ee 0%, #ffedd8 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+.menu-note {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 1.05rem;
+}

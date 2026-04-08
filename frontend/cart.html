@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodStack | Cart</title>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/cart.css">
+</head>
+<body class="paper-bg">
+  <main class="app-shell">
+    <section class="app-surface">
+      <header class="app-header">
+        <a class="brand-link" href="home.html" aria-label="FoodStack home">
+          <img src="assets/images/logo-foodstack.png" alt="FoodStack logo">
+        </a>
+
+        <div class="user-chip">Your Cart</div>
+
+        <nav class="nav-actions" aria-label="Cart navigation">
+          <a class="pill-btn pill-btn--soft" href="home.html">Home</a>
+          <a class="pill-btn pill-btn--soft" href="cart.html">Cart <span class="badge-count" data-cart-count>0</span></a>
+          <a class="pill-btn pill-btn--ghost" href="login.html" data-logout>Logout</a>
+        </nav>
+      </header>
+
+      <section class="cart-layout">
+        <article class="cart-list" aria-label="Cart products">
+          <h1 class="section-title">Your Cart</h1>
+          <p class="section-subtitle">Review your items and adjust quantity before checkout.</p>
+
+          <div id="cart-items" class="cart-items"></div>
+        </article>
+
+        <aside class="cart-summary" aria-label="Order summary">
+          <h2 class="section-title">Summary</h2>
+          <div class="summary-row">
+            <span>Items in cart</span>
+            <strong class="summary-value" data-cart-count>0</strong>
+          </div>
+          <div class="summary-row">
+            <span>Subtotal</span>
+            <strong id="summary-subtotal" class="summary-value">$0.00</strong>
+          </div>
+          <div class="summary-row">
+            <span>Service & taxes (8%)</span>
+            <strong id="summary-fee" class="summary-value">$0.00</strong>
+          </div>
+          <div class="summary-row summary-total">
+            <span>Total</span>
+            <strong id="summary-total" class="summary-value">$0.00</strong>
+          </div>
+
+          <div class="summary-actions">
+            <button id="proceed-order-btn" class="pill-btn pill-btn--primary" type="button">Proceed to Order</button>
+            <a class="pill-btn pill-btn--ghost" href="menu.html">Back to Menu</a>
+          </div>
+        </aside>
+      </section>
+    </section>
+  </main>
+
+  <script src="js/data.js"></script>
+  <script src="js/app-shell.js"></script>
+  <script src="js/cart.js"></script>
+</body>
+</html>
