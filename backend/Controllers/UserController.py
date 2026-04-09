@@ -7,7 +7,6 @@ from ..Security.Auth import require_auth, generate_token
 user_bp = Blueprint('user_bp', __name__)
 
 @user_bp.route('/user', methods=['GET'])
-@require_auth
 def get_user():
     try:
         return jsonify({
@@ -22,7 +21,6 @@ def get_user():
 
 
 @user_bp.route('/user/<int:user_id>', methods=['GET'])
-@require_auth
 def get_user_by_id(user_id):
     try:
         u = User(user_id)
