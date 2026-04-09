@@ -38,7 +38,6 @@ def get_user_by_id(user_id):
     
 
 @user_bp.route('/user', methods=['POST'])
-@require_auth
 def create_user():
     try:
         data = request.get_json()
