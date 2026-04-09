@@ -1,9 +1,16 @@
-from flask import Flask, jsonify
+from flask import Flask, render_template, redirect, url_for, jsonify
+import os
+from dotenv import load_dotenv
 from backend.Controllers.UserController import user_bp
+
+load_dotenv()
+ 
+server = os.getenv("SQL_SERVER")
 
 app = Flask(__name__)
 
-# Register Blueprint
+app.secret_key = "secret_key"
+
 app.register_blueprint(user_bp, url_prefix="/api")
 
 
@@ -19,6 +26,12 @@ def test():
         "message": "API funcionando"
     })
 
+@app.after_request
+def add_Cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Access-Control-Allow-Methods'] = "GET, POST, PUT, DELETE"
+    return response
 
 if __name__ == "__main__":
     app.run(debug=True)
