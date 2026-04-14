@@ -70,6 +70,20 @@ a {
   border-bottom: 1px solid rgba(235, 192, 142, 0.7);
 }
 
+.app-header--topbar {
+  position: sticky;
+  top: 0.45rem;
+  z-index: 30;
+  margin-bottom: 1.15rem;
+  padding: 0.5rem 0.72rem;
+  border-bottom: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(232, 183, 129, 0.84);
+  background: rgba(255, 249, 241, 0.97);
+  box-shadow: 0 8px 16px rgba(114, 60, 17, 0.1);
+  backdrop-filter: blur(2px);
+}
+
 .brand-link {
   display: inline-flex;
   align-items: center;
@@ -79,6 +93,10 @@ a {
 .brand-link img {
   width: clamp(250px, 24vw, 390px);
   height: auto;
+}
+
+.app-header--topbar .brand-link img {
+  width: clamp(140px, 14vw, 190px);
 }
 
 .user-chip {
@@ -93,8 +111,39 @@ a {
   font-size: 1.05rem;
 }
 
+.app-header--topbar .user-chip {
+  gap: 0.42rem;
+  padding: 0.45rem 0.72rem;
+  font-size: 0.88rem;
+}
+
 .user-chip strong {
   color: var(--text-main);
+}
+
+.user-chip--admin {
+  background: rgba(255, 239, 221, 0.95);
+  border-color: #e5bf95;
+}
+
+.chip-role {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #edd1b3;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #83522a;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.app-header--topbar .chip-role {
+  padding: 0.12rem 0.4rem;
+  font-size: 0.64rem;
 }
 
 .nav-actions {
@@ -103,6 +152,14 @@ a {
   gap: 0.85rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.app-header--topbar .nav-actions {
+  gap: 0.52rem;
+  padding: 0.26rem;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 194, 151, 0.84);
+  background: rgba(255, 239, 221, 0.9);
 }
 
 .pill-btn {
@@ -119,6 +176,46 @@ a {
   gap: 0.45rem;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.app-header--topbar .pill-btn {
+  min-height: 2.58rem;
+  padding: 0.58rem 1.02rem;
+  font-size: 0.93rem;
+  font-weight: 700;
+  gap: 0.44rem;
+}
+
+.app-header--topbar .pill-btn__inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.44rem;
+  line-height: 1;
+}
+
+.app-header--topbar .nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.06rem;
+  height: 1.06rem;
+  opacity: 0.95;
+  flex-shrink: 0;
+}
+
+.app-header--topbar .nav-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  stroke-width: 2.05;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.app-header--topbar .nav-label {
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .pill-btn:hover {
@@ -161,6 +258,17 @@ a {
   border: 1px solid #edc395;
 }
 
+.pill-btn--active {
+  border-color: #bf5d0d;
+  color: #fff;
+  background: linear-gradient(180deg, #ff9f33 0%, #de6500 100%);
+  box-shadow: 0 10px 16px rgba(185, 88, 12, 0.25);
+}
+
+.app-header--topbar .pill-btn--active {
+  box-shadow: 0 6px 12px rgba(185, 88, 12, 0.22);
+}
+
 .badge-count {
   min-width: 1.8rem;
   height: 1.8rem;
@@ -172,6 +280,26 @@ a {
   color: #b15000;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.app-header--topbar .badge-count {
+  min-width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.82rem;
+  margin-left: 0.06rem;
+}
+
+.app-header--topbar[data-topbar-mode="admin"] {
+  border-color: rgba(214, 167, 117, 0.86);
+  background: rgba(255, 246, 234, 0.98);
+}
+
+.app-header--topbar[data-topbar-mode="admin"] .nav-actions {
+  background: rgba(255, 233, 206, 0.92);
+}
+
+.app-header--topbar + section {
+  margin-top: 0.1rem;
 }
 
 .section-title {
@@ -331,6 +459,11 @@ a {
     justify-content: center;
   }
 
+  .app-header--topbar .nav-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
   .product-grid {
     grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
   }
@@ -348,5 +481,20 @@ a {
 
   .product-grid {
     grid-template-columns: 1fr;
+  }
+
+  .app-header--topbar {
+    top: 0.28rem;
+    padding: 0.45rem 0.52rem;
+  }
+
+  .app-header--topbar .brand-link img {
+    width: clamp(122px, 31vw, 160px);
+  }
+
+  .app-header--topbar .pill-btn {
+    min-height: 2.28rem;
+    padding: 0.48rem 0.82rem;
+    font-size: 0.86rem;
   }
 }

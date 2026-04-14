@@ -50,6 +50,23 @@
     { id: 'taco-supreme', name: 'Taco Supreme', units: 96, revenue: 671.04 }
   ];
 
+  const MOCK_RECENT_ACTIVITY = [
+    { id: 'ACT-101', title: 'Inventory alert', detail: 'Spicy Beef Burrito stock is below threshold.', level: 'warning', createdAt: '2026-04-13T09:24:00Z' },
+    { id: 'ACT-102', title: 'Order completed', detail: 'Order ORD-3094 was marked completed.', level: 'info', createdAt: '2026-04-13T09:22:00Z' },
+    { id: 'ACT-103', title: 'Menu update pending', detail: 'Review pricing adjustments for Drinks category.', level: 'neutral', createdAt: '2026-04-13T09:10:00Z' },
+    { id: 'ACT-104', title: 'Shift reminder', detail: 'Lunch shift handoff starts at 11:30 AM.', level: 'neutral', createdAt: '2026-04-13T08:55:00Z' }
+  ];
+
+  const MOCK_ANALYTICS_PREVIEW = [
+    { label: 'Mon', orders: 38, revenue: 412.3 },
+    { label: 'Tue', orders: 44, revenue: 509.1 },
+    { label: 'Wed', orders: 41, revenue: 476.8 },
+    { label: 'Thu', orders: 53, revenue: 622.4 },
+    { label: 'Fri', orders: 58, revenue: 718.9 },
+    { label: 'Sat', orders: 47, revenue: 541.6 },
+    { label: 'Sun', orders: 35, revenue: 398.2 }
+  ];
+
   function cloneData(source) {
     return JSON.parse(JSON.stringify(source));
   }
@@ -135,6 +152,35 @@
     };
   }
 
+  async function loadStaffHomeSnapshot() {
+    const products = cloneData(MOCK_PRODUCTS);
+    const recentOrders = cloneData(MOCK_RECENT_ORDERS);
+    const recentActivity = cloneData(MOCK_RECENT_ACTIVITY);
+    const ordersToday = recentOrders.length;
+    const pendingOrders = recentOrders.filter((item) => {
+      const status = String(item.status || '').toLowerCase();
+      return status === 'pending' || status === 'preparing';
+    }).length;
+    const revenueToday = recentOrders.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const lowStockItems = products.filter((item) => Number(item.stock || 0) <= 30).length;
+
+    return {
+      quickStats: {
+        ordersToday: ordersToday,
+        pendingOrders: pendingOrders,
+        revenueToday: revenueToday,
+        lowStockItems: lowStockItems
+      },
+      quickActions: [
+        { key: 'review-menu', title: 'Review menu', description: 'Verify product names, prices, and categories.', href: 'menu.html' },
+        { key: 'latest-orders', title: 'Check latest orders', description: 'Open the latest order stream and status queue.', href: 'admin-dashboard.html#recent-orders-panel' },
+        { key: 'manage-orders', title: 'Manage orders', description: 'Go to detailed order management and fulfillment view.', href: 'admin-dashboard.html#recent-orders-panel' }
+      ],
+      recentActivity: recentActivity,
+      analyticsPreview: cloneData(MOCK_ANALYTICS_PREVIEW)
+    };
+  }
+
   window.FOODSTACK_ADMIN_API = {
     demoCredentials: {
       email: DEMO_STAFF[0].email,
@@ -144,6 +190,7 @@
     saveSession: saveSession,
     readSession: readSession,
     clearSession: clearSession,
-    loadDashboardSnapshot: loadDashboardSnapshot
+    loadDashboardSnapshot: loadDashboardSnapshot,
+    loadStaffHomeSnapshot: loadStaffHomeSnapshot
   };
 })();

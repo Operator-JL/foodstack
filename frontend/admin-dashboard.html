@@ -10,19 +10,7 @@
 <body class="paper-bg">
   <main class="app-shell">
     <section class="app-surface admin-shell">
-      <header class="app-header">
-        <a class="brand-link" href="admin-dashboard.html" aria-label="FoodStack admin dashboard">
-          <img src="assets/images/logo-foodstack.png" alt="FoodStack logo">
-        </a>
-
-        <div id="admin-user-chip" class="user-chip">Staff Console</div>
-
-        <nav class="nav-actions" aria-label="Admin navigation">
-          <a class="pill-btn pill-btn--ghost" href="home.html">Customer Home</a>
-          <a class="pill-btn pill-btn--soft" href="menu.html">Menu</a>
-          <button class="pill-btn pill-btn--ghost" type="button" data-admin-logout>Logout</button>
-        </nav>
-      </header>
+      <header class="app-header app-header--topbar" data-topbar data-topbar-mode="admin" data-topbar-context="dashboard"></header>
 
       <section class="admin-hero" aria-label="Admin dashboard intro">
         <h1>Operations dashboard</h1>
@@ -41,7 +29,7 @@
           <ul id="best-sellers-list" class="seller-list"></ul>
         </article>
 
-        <article class="admin-panel">
+        <article class="admin-panel" id="recent-orders-panel">
           <div class="admin-panel__head">
             <h2>Recent orders</h2>
           </div>
@@ -73,6 +61,7 @@
     </section>
   </main>
 
+  <script src="js/topbar.js"></script>
   <script src="js/admin-data.js"></script>
   <script src="js/admin-dashboard.js"></script>
 </body>

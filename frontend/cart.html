@@ -10,19 +10,7 @@
 <body class="paper-bg">
   <main class="app-shell">
     <section class="app-surface">
-      <header class="app-header">
-        <a class="brand-link" href="home.html" aria-label="FoodStack home">
-          <img src="assets/images/logo-foodstack.png" alt="FoodStack logo">
-        </a>
-
-        <div class="user-chip">Your Cart</div>
-
-        <nav class="nav-actions" aria-label="Cart navigation">
-          <a class="pill-btn pill-btn--soft" href="home.html">Home</a>
-          <a class="pill-btn pill-btn--soft" href="cart.html">Cart <span class="badge-count" data-cart-count>0</span></a>
-          <a class="pill-btn pill-btn--ghost" href="login.html" data-logout>Logout</a>
-        </nav>
-      </header>
+      <header class="app-header app-header--topbar" data-topbar data-topbar-mode="user" data-topbar-context="cart"></header>
 
       <section class="cart-layout">
         <article class="cart-list" aria-label="Cart products">
@@ -60,6 +48,7 @@
     </section>
   </main>
 
+  <script src="js/topbar.js"></script>
   <script src="js/data.js"></script>
   <script src="js/app-shell.js"></script>
   <script src="js/cart.js"></script>

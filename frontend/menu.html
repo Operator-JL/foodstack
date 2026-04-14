@@ -10,26 +10,14 @@
 <body class="paper-bg">
   <main class="app-shell">
     <section class="app-surface menu-layout">
-      <header class="app-header">
-        <a class="brand-link" href="home.html" aria-label="FoodStack home">
-          <img src="assets/images/logo-foodstack.png" alt="FoodStack logo">
-        </a>
-
-        <div class="user-chip">Menu Catalog</div>
-
-        <nav class="nav-actions" aria-label="Menu navigation">
-          <a class="pill-btn pill-btn--ghost" href="home.html">Home</a>
-          <a class="pill-btn pill-btn--soft" href="cart.html">Cart <span class="badge-count" data-cart-count>0</span></a>
-          <a class="pill-btn pill-btn--ghost" href="login.html" data-logout>Logout</a>
-        </nav>
-      </header>
+      <header class="app-header app-header--topbar" data-topbar data-topbar-mode="auto" data-topbar-context="menu"></header>
 
       <section class="menu-tools">
         <div>
-          <h1 class="section-title">Choose your favorites</h1>
-          <p class="section-subtitle">Use tabs to filter by category and add products to your cart.</p>
+          <h1 id="menu-title" class="section-title">Choose your favorites</h1>
+          <p id="menu-subtitle" class="section-subtitle">Use tabs to filter by category and add products to your cart.</p>
         </div>
-        <a class="pill-btn pill-btn--primary" href="cart.html">Go to cart</a>
+        <a id="menu-cart-cta" class="pill-btn pill-btn--primary" href="cart.html">Go to cart</a>
       </section>
 
       <section aria-label="Menu categories">
@@ -43,6 +31,7 @@
     </section>
   </main>
 
+  <script src="js/topbar.js"></script>
   <script src="js/data.js"></script>
   <script src="js/app-shell.js"></script>
   <script src="js/menu.js"></script>

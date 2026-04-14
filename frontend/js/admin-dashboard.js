@@ -27,7 +27,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   if (userChip) {
-    userChip.textContent = `Staff Console: ${sessionUser.name}`;
+    const chipStrong = userChip.querySelector('strong');
+
+    if (chipStrong) {
+      chipStrong.textContent = sessionUser.name;
+    } else {
+      userChip.textContent = `Staff Console: ${sessionUser.name}`;
+    }
   }
 
   function formatMoney(value) {

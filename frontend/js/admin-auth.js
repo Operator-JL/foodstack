@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (api.readSession()) {
-    window.location.href = 'admin-dashboard.html';
+    window.location.href = 'staff-home.html';
     return;
   }
 
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
     api.saveSession(result.user);
     showMessage('Access granted. Redirecting...', true);
     window.setTimeout(() => {
-      window.location.href = 'admin-dashboard.html';
+      window.location.href = 'staff-home.html';
     }, 300);
   });
 });

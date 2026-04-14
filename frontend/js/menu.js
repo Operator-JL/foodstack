@@ -8,13 +8,56 @@ document.addEventListener('DOMContentLoaded', () => {
   const tabs = document.getElementById('menu-tabs');
   const grid = document.getElementById('menu-grid');
   const msg = document.getElementById('menu-msg');
+  const menuTitle = document.getElementById('menu-title');
+  const menuSubtitle = document.getElementById('menu-subtitle');
+  const menuCartCta = document.getElementById('menu-cart-cta');
   let switchTimer = null;
   const availableCategories = ['All', ...data.categories];
+
+  function hasStaffSession() {
+    const raw = window.localStorage.getItem('foodstack-admin-session');
+
+    if (!raw) {
+      return false;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      return Boolean(parsed && parsed.user);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  const isStaffContext = hasStaffSession();
 
   const params = new URLSearchParams(window.location.search);
   const requestedCategory = params.get('category');
   const initialCategory = availableCategories.includes(requestedCategory) ? requestedCategory : 'All';
   let activeCategory = initialCategory;
+
+  function configureContextView() {
+    if (!isStaffContext) {
+      return;
+    }
+
+    if (menuTitle) {
+      menuTitle.textContent = 'Menu overview';
+    }
+
+    if (menuSubtitle) {
+      menuSubtitle.textContent = 'Review products, categories, and pricing.';
+    }
+
+    if (menuCartCta) {
+      menuCartCta.hidden = true;
+      menuCartCta.setAttribute('aria-hidden', 'true');
+    }
+
+    if (msg) {
+      msg.textContent = 'Staff mode: cart and purchase actions are disabled.';
+    }
+  }
 
   function showAddFeedback(button) {
     if (button.dataset.adding === '1') {
@@ -79,24 +122,29 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="product-card__body">
             <h3 class="product-card__title">${product.name}</h3>
             <p class="product-card__meta">${product.description}</p>
-            <div class="product-card__footer">
+            <div class="product-card__footer${isStaffContext ? ' is-view-only' : ''}">
               <p class="product-price">${data.money(product.price)}</p>
-              <button class="pill-btn pill-btn--primary" type="button" data-add-id="${product.id}">Add</button>
+              ${isStaffContext
+                ? '<p class="menu-view-only">View only</p>'
+                : `<button class="pill-btn pill-btn--primary" type="button" data-add-id="${product.id}">Add</button>`
+              }
             </div>
           </div>
         </article>
       `).join('');
 
-      document.querySelectorAll('[data-add-id]').forEach((button) => {
-        button.addEventListener('click', () => {
-          data.addToCart(button.getAttribute('data-add-id'), 1);
-          showAddFeedback(button);
+      if (!isStaffContext) {
+        document.querySelectorAll('[data-add-id]').forEach((button) => {
+          button.addEventListener('click', () => {
+            data.addToCart(button.getAttribute('data-add-id'), 1);
+            showAddFeedback(button);
 
-          if (msg) {
-            msg.textContent = 'Added to cart.';
-          }
+            if (msg) {
+              msg.textContent = 'Added to cart.';
+            }
+          });
         });
-      });
+      }
 
       grid.classList.remove('is-switching');
     }, 120);
@@ -107,5 +155,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderGrid();
   }
 
+  configureContextView();
   render();
 });
