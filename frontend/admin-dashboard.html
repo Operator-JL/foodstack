@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FoodStack | Admin Dashboard</title>
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/admin-dashboard.css">
+</head>
+<body class="paper-bg">
+  <main class="app-shell">
+    <section class="app-surface admin-shell">
+      <header class="app-header">
+        <a class="brand-link" href="admin-dashboard.html" aria-label="FoodStack admin dashboard">
+          <img src="assets/images/logo-foodstack.png" alt="FoodStack logo">
+        </a>
+
+        <div id="admin-user-chip" class="user-chip">Staff Console</div>
+
+        <nav class="nav-actions" aria-label="Admin navigation">
+          <a class="pill-btn pill-btn--ghost" href="home.html">Customer Home</a>
+          <a class="pill-btn pill-btn--soft" href="menu.html">Menu</a>
+          <button class="pill-btn pill-btn--ghost" type="button" data-admin-logout>Logout</button>
+        </nav>
+      </header>
+
+      <section class="admin-hero" aria-label="Admin dashboard intro">
+        <h1>Operations dashboard</h1>
+        <p>Quick view of products, orders, and sales performance.</p>
+      </section>
+
+      <section aria-label="Summary metrics">
+        <div id="admin-summary-grid" class="admin-summary-grid"></div>
+      </section>
+
+      <section class="admin-content-grid" aria-label="Sales and orders overview">
+        <article class="admin-panel">
+          <div class="admin-panel__head">
+            <h2>Best-selling products</h2>
+          </div>
+          <ul id="best-sellers-list" class="seller-list"></ul>
+        </article>
+
+        <article class="admin-panel">
+          <div class="admin-panel__head">
+            <h2>Recent orders</h2>
+          </div>
+          <div class="table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Status</th>
+                  <th>Total</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="recent-orders-body"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="admin-panel" aria-label="Products list">
+        <div class="admin-panel__head">
+          <h2>Products</h2>
+        </div>
+        <div id="products-list" class="products-list"></div>
+      </section>
+
+      <p id="admin-inline-msg" class="admin-inline-msg" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script src="js/admin-data.js"></script>
+  <script src="js/admin-dashboard.js"></script>
+</body>
+</html>

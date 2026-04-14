@@ -96,6 +96,23 @@
   text-decoration: underline;
 }
 
+.auth-staff-link {
+  margin: 0.45rem 0 0;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #8b7e72;
+}
+
+.auth-staff-link a {
+  color: #6d4a2c;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-staff-link a:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 1000px) {
   .auth-page {
     grid-template-columns: 1fr;
