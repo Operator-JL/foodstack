@@ -1,0 +1,3 @@
+Users get
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/user
+

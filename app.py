@@ -2,6 +2,7 @@ from flask import Flask, render_template, redirect, url_for, jsonify
 import os
 from dotenv import load_dotenv
 from backend.Controllers.UserController import user_bp
+from backend.Controllers.CategoryController import category_bp
 
 load_dotenv()
  
