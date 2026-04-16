@@ -81,7 +81,7 @@ class Category:
             "id": self._id,
             "name": self._name,
             "status": self._status,
-            "created_at": self._created_at
+            "created_at": self._created_at.isoformat() if self._created_at else None
         })
 
     # INSERT
