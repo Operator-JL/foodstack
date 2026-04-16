@@ -1,7 +1,7 @@
 from flask import jsonify, Blueprint, request
 import json
 
-from ..Models.order import Order
+from backend.Models.order import Order
 from ..Security.Auth import require_auth
 
 order_bp = Blueprint('order_bp', __name__)

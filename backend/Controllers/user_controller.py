@@ -1,7 +1,7 @@
 from flask import jsonify, Blueprint, request, make_response
 import json
 
-from ..Models.user import User
+from backend.Models.user import User
 from ..Security.Auth import require_auth, generate_token
 
 user_bp = Blueprint('user_bp', __name__)
