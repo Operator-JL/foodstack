@@ -1,7 +1,7 @@
 from flask import jsonify, Blueprint, request, make_response
 import json
 
-from ..Models.Category import Category
+from ..Models.Categories import Category
 from ..Security.Auth import require_auth
 
 category_bp = Blueprint('category_bp', __name__)
