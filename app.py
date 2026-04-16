@@ -13,6 +13,7 @@ app = Flask(__name__)
 app.secret_key = "secret_key"
 
 app.register_blueprint(user_bp, url_prefix="/api")
+app.register_blueprint(category_bp, url_prefix="/api")
 
 
 @app.route("/")
