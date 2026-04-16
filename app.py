@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from backend.Controllers.UserController import user_bp
 from backend.Controllers.CategoryController import category_bp
+from backend.Controllers.ProductController import product_bp
 
 load_dotenv()
  
@@ -14,6 +15,7 @@ app.secret_key = "secret_key"
 
 app.register_blueprint(user_bp, url_prefix="/api")
 app.register_blueprint(category_bp, url_prefix="/api")
+app.register_blueprint(product_bp, url_prefix="/api")
 
 
 @app.route("/")
