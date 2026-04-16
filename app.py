@@ -1,5 +1,8 @@
 from flask import Flask, render_template, redirect, url_for, jsonify
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from dotenv import load_dotenv
 from backend.Controllers.user_controller import user_bp
 from backend.Controllers.category_controller import category_bp
