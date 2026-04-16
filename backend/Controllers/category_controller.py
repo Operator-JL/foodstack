@@ -1,7 +1,7 @@
 from flask import jsonify, Blueprint, request, make_response
 import json
 
-from ..Models.Categories import Category
+from ..Models.category import Category
 from ..Security.Auth import require_auth
 
 category_bp = Blueprint('category_bp', __name__)
@@ -21,7 +21,7 @@ def get_categories():
         })
 
 #GET by id
-@category_bp.route('/categories/<int:category_id>', methods=['GET'])
+@category_bp.route('/category/<int:category_id>', methods=['GET'])
 def get_category_by_id(category_id):
     try:
         c = Category(category_id)
@@ -36,7 +36,7 @@ def get_category_by_id(category_id):
         })
 
 #POST
-@category_bp.route('/categories', methods=['POST'])
+@category_bp.route('/category', methods=['POST'])
 def create_category():
     try:
         data = request.get_json()

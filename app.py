@@ -1,9 +1,15 @@
 from flask import Flask, render_template, redirect, url_for, jsonify
 import os
 from dotenv import load_dotenv
-from backend.Controllers.UserController import user_bp
-from backend.Controllers.CategoryController import category_bp
-from backend.Controllers.ProductController import product_bp
+from backend.Controllers.user_controller import user_bp
+from backend.Controllers.category_controller import category_bp
+from backend.Controllers.product_controller import product_bp
+from backend.Controllers.ingredient_controller import ingredient_bp
+from backend.Controllers.order_controller import order_bp
+from backend.Controllers.product_ingredient_controller import product_ingredient_bp
+from backend.Controllers.order_product_controller import order_product_bp
+from backend.Controllers.order_product_ingredient_controller import order_product_ingredient_bp
+
 
 load_dotenv()
  
@@ -16,6 +22,12 @@ app.secret_key = "secret_key"
 app.register_blueprint(user_bp, url_prefix="/api")
 app.register_blueprint(category_bp, url_prefix="/api")
 app.register_blueprint(product_bp, url_prefix="/api")
+app.register_blueprint(ingredient_bp, url_prefix="/api")
+app.register_blueprint(order_bp, url_prefix="/api")
+app.register_blueprint(product_ingredient_bp, url_prefix="/api")
+app.register_blueprint(order_product_bp, url_prefix="/api")
+app.register_blueprint(order_product_ingredient_bp, url_prefix="/api")
+
 
 
 @app.route("/")

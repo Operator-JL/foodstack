@@ -1,16 +1,16 @@
-import json
+#.import json
 from ..Infrastructure.SQLServerConnection import *
 
 class RecordNotFoundException(Exception):
     pass
 
-class OrderProductIngredient:
+class Order:
     def __init__(self, *args):
         self._id = 0
-        self._order_product_id = 0
-        self._ingredient_id = 0
-        self._quantity = 1
-        self._status = 1
+        self._user_id = 0
+        self._total = 0.0
+        self._datetime = None
+        self._status = "pending"
         self._created_at = None
 
         # constructors
@@ -19,9 +19,9 @@ class OrderProductIngredient:
         elif len(args) == 6:
             (
                 self._id,
-                self._order_product_id,
-                self._ingredient_id,
-                self._quantity,
+                self._user_id,
+                self._total,
+                self._datetime,
                 self._status,
                 self._created_at
             ) = args
@@ -34,25 +34,25 @@ class OrderProductIngredient:
         self._id = value
 
     @property
-    def order_product_id(self):
-        return self._order_product_id
-    @order_product_id.setter
-    def order_product_id(self, value):
-        self._order_product_id = value
+    def user_id(self):
+        return self._user_id
+    @user_id.setter
+    def user_id(self, value):
+        self._user_id = value
 
     @property
-    def ingredient_id(self):
-        return self._ingredient_id
-    @ingredient_id.setter
-    def ingredient_id(self, value):
-        self._ingredient_id = value
+    def total(self):
+        return self._total
+    @total.setter
+    def total(self, value):
+        self._total = value
 
     @property
-    def quantity(self):
-        return self._quantity
-    @quantity.setter
-    def quantity(self, value):
-        self._quantity = value
+    def datetime(self):
+        return self._datetime
+    @datetime.setter
+    def datetime(self, value):
+        self._datetime = value
 
     @property
     def status(self):
@@ -69,28 +69,28 @@ class OrderProductIngredient:
         self._created_at = value
 
     # GET BY ID
-    def load_by_id(self, id):
+    def load_by_id(self, order_id):
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT Id, Order_Product_Id, Ingredient_Id, Quantity, Status, Created_At
-                    FROM Order_Product_Ingredients
+                    SELECT Id, User_Id, Total, Datetime, Status, Created_At
+                    FROM Orders
                     WHERE Id = ?
-                """, id)
+                """, order_id)
 
                 row = cursor.fetchone()
                 if row:
                     (
                         self._id,
-                        self._order_product_id,
-                        self._ingredient_id,
-                        self._quantity,
+                        self._user_id,
+                        self._total,
+                        self._datetime,
                         self._status,
                         self._created_at
                     ) = row
                 else:
-                    raise RecordNotFoundException(f"Record with id {id} was not found.")
+                    raise RecordNotFoundException(f"Order with id {order_id} was not found.")
         except Exception as e:
             raise e
 
@@ -102,22 +102,22 @@ class OrderProductIngredient:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT Id, Order_Product_Id, Ingredient_Id, Quantity, Status, Created_At
-                    FROM Order_Product_Ingredients
+                    SELECT Id, User_Id, Total, Datetime, Status, Created_At
+                    FROM Orders
                     ORDER BY Id DESC
                 """)
                 for row in cursor.fetchall():
-                    list.append(OrderProductIngredient(*row))
+                    list.append(Order(*row))
         except Exception as ex:
-            print("error fetching order_product_ingredients...", ex)
+            print("error fetching orders...", ex)
         return list
 
     def to_json(self):
         return json.dumps({
             "id": self._id,
-            "order_product_id": self._order_product_id,
-            "ingredient_id": self._ingredient_id,
-            "quantity": self._quantity,
+            "user_id": self._user_id,
+            "total": float(self._total),
+            "datetime": self._datetime.isoformat() if self._datetime else None,
             "status": self._status,
             "created_at": self._created_at.isoformat() if self._created_at else None
         })
@@ -128,13 +128,11 @@ class OrderProductIngredient:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO Order_Product_Ingredients 
-                    (Order_Product_Id, Ingredient_Id, Quantity, Status)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO Orders (User_Id, Total, Status)
+                    VALUES (?, ?, ?)
                 """, (
-                    self._order_product_id,
-                    self._ingredient_id,
-                    self._quantity,
+                    self._user_id,
+                    self._total,
                     self._status
                 ))
                 conn.commit()

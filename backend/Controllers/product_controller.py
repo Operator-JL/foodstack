@@ -1,11 +1,12 @@
 from flask import jsonify, Blueprint, request
 import json
 
-from ..Models.Product import Product
+from ..Models.product import Product
 from ..Security.Auth import require_auth
 
 product_bp = Blueprint('product_bp', __name__)
 
+#GET
 @product_bp.route('/products', methods=['GET'])
 def get_products():
     try:
@@ -19,8 +20,8 @@ def get_products():
             "errorMessage": str(e)
         })
 
-
-@product_bp.route('/products/<int:product_id>', methods=['GET'])
+#GET by id
+@product_bp.route('/product/<int:product_id>', methods=['GET'])
 def get_product_by_id(product_id):
     try:
         p = Product(product_id)
@@ -34,8 +35,8 @@ def get_product_by_id(product_id):
             "errorMessage": str(e)
         })
 
-
-@product_bp.route('/products', methods=['POST'])
+#POST
+@product_bp.route('/product', methods=['POST'])
 def create_product():
     try:
         data = request.get_json()

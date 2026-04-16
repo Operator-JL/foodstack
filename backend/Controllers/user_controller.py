@@ -1,12 +1,13 @@
 from flask import jsonify, Blueprint, request, make_response
 import json
 
-from ..Models.User import User
+from ..Models.user import User
 from ..Security.Auth import require_auth, generate_token
 
 user_bp = Blueprint('user_bp', __name__)
 
-@user_bp.route('/user', methods=['GET'])
+#GET
+@user_bp.route('/users', methods=['GET'])
 def get_user():
     try:
         return jsonify({
@@ -19,7 +20,7 @@ def get_user():
             "errorMessage": str(e)
         })
 
-
+#GET by id
 @user_bp.route('/user/<int:user_id>', methods=['GET'])
 def get_user_by_id(user_id):
     try:
@@ -34,7 +35,7 @@ def get_user_by_id(user_id):
             "errorMessage": str(e)
         })
     
-
+#POST
 @user_bp.route('/user', methods=['POST'])
 def create_user():
     try:
