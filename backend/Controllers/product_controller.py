@@ -4,7 +4,7 @@ import json
 from backend.Models.product import Product
 from backend.Models.category import Category
 from backend.Models.ingredient import Ingredient
-from ..Infrastructure.SQLServerConnection import get_connection
+from backend.Infrastructure.SQLServerConnection import get_connection
 from ..Security.Auth import require_auth
 
 product_bp = Blueprint('product_bp', __name__)
