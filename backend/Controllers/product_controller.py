@@ -3,7 +3,7 @@ import json
 
 from backend.Models.Product import Product
 from backend.Models.category import Category
-from backend.Models.Ingredient import Ingredient
+from backend.Models.ingredient import Ingredient
 from backend.Infrastructure.SQLServerConnection import get_connection
 from ..Security.Auth import require_auth
 
@@ -36,7 +36,7 @@ def get_product_by_id(product_id):
         cursor.execute("""
             SELECT i.id, i.name, i.extra_price, ip.default_ingredients
             FROM ingredients i
-            INNER JOIN ingredients_products ip 
+            INNER JOIN Product_ingredients ip 
                 ON i.id = ip.ingredient_id
             WHERE ip.product_id = ?
             AND ip.status = 1
