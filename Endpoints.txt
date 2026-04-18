@@ -1,6 +1,57 @@
-Users get
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/user
+Users 
+get-all
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/users
+get by id
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/category/1
 
-Categories get
+
+Categories 
+get-all
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/categories
+get by id
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/category/1
+
+
+Products 
+get-all
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/products
+get by id
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/products/1
+
+
+Ingredients 
+get-all
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/ingredients
+get by id
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/ingredient/1
+
+
+Product-Ingredients 
+get-all
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/product-ingredients
+get by id
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/product-ingredient/1
+
+
+Orders 
+get-all
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/orders
+get by id
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/orders/1
+
+
+Order-Products 
+get-all
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-products
+get by id
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-product/1
+
+
+Order-Product-Ingredients 
+get-all
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-product-ingredients
+get by id
+https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-product-ingredient/1
+
+
 
