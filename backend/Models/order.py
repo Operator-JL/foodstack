@@ -1,4 +1,4 @@
-#.import json
+import json
 from ..Infrastructure.SQLServerConnection import *
 
 class RecordNotFoundException(Exception):
