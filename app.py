@@ -32,6 +32,7 @@ app.register_blueprint(order_product_bp, url_prefix="/api")
 app.register_blueprint(order_product_ingredient_bp, url_prefix="/api")
 
 
+print(app.url_map)
 
 @app.route("/")
 def home():
