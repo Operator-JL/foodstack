@@ -119,3 +119,46 @@ def logout():
     response.delete_cookie("auth_token")
 
     return response
+
+#PUT
+@user_bp.route('/user/<int:user_id>', methods=['PUT'])
+def update_user(user_id):
+    try:
+        data = request.get_json()
+
+        u = User(user_id)
+
+        # Solo actualiza si viene en el request
+        if "name" in data:
+            u.name = data.get("name")
+
+        if "lastname" in data:
+            u.lastname = data.get("lastname")
+
+        if "phoneNumber" in data:
+            u.phoneNumber = data.get("phoneNumber")
+
+        if "email" in data:
+            u.email = data.get("email")
+
+        if "password" in data:
+            u.password = data.get("password")
+
+        if "role" in data:
+            u.role = data.get("role")
+
+        if "status" in data:
+            u.status = data.get("status")
+
+        u.update()
+
+        return jsonify({
+            "status": 0,
+            "message": "User updated successfully"
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status": 1,
+            "errorMessage": str(e)
+        })

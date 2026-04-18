@@ -2,6 +2,7 @@ from flask import jsonify, Blueprint, request
 import json
 
 from backend.Models.Product import Product
+from backend.Models.category import Category
 from ..Security.Auth import require_auth
 
 product_bp = Blueprint('product_bp', __name__)
@@ -25,9 +26,15 @@ def get_products():
 def get_product_by_id(product_id):
     try:
         p = Product(product_id)
+
+        category = Category(p.category_id)
+
+        data = json.loads(p.to_json())
+        data["category"] = json.loads(category.to_json())
+
         return jsonify({
             "status": 0,
-            "data": json.loads(p.to_json())
+            "data": data
         })
     except Exception as e:
         return jsonify({

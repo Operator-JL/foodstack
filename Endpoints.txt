@@ -3,6 +3,16 @@ get-all
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/users
 get by id
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/category/1
+POST
+PUT
+{
+  "name": "Jose",
+  "lastname": "Gonzalez",
+  "phoneNumber": "6643104178",
+  "email": "jlozoya.599@gmail.com",
+  "password": "Hola123!",
+  "role": "admin"
+}
 
 
 Categories 
@@ -17,6 +27,15 @@ get-all
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/products
 get by id
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/products/1
+POST
+{
+  "category_id": 3,
+  "name": "Curly Fries",
+  "description": "Crispy golden spirals packed with bold seasoning in every twist. Crunchy on the outside, fluffy on the inside—once you start, you can’t stop.",
+  "image": "https://yourcdn.com/images/curly-fries.jpg",
+  "price": 49.99,
+  "status": 1
+}
 
 
 Ingredients 
