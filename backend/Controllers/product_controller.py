@@ -1,9 +1,9 @@
 from flask import jsonify, Blueprint, request
 import json
 
-from backend.Models.Product import Product
+from backend.Models.product import Product
 from backend.Models.category import Category
-from backend.Models.Ingredient import Ingredient
+from backend.Models.ingredient import Ingredient
 from backend.Infrastructure.SQLServerConnection import get_connection
 from ..Security.Auth import require_auth
 
