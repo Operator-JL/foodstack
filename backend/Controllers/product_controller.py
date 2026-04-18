@@ -30,7 +30,7 @@ def get_product_by_id(product_id):
         p = Product(product_id)
 
         category = Category(p.category_id)
-        conn = get_connection()
+        conn = SQLServerConnection.get_connection()
         cursor = conn.cursor()
 
         cursor.execute("""
