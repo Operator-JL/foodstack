@@ -114,7 +114,7 @@ class User:
         self._created_at = value
 
     # ---------------- DB METHODS ----------------
-    
+
     def get_orders(self, conn):
         try:
             return Order.get_by_user_id(self._id, conn)
@@ -131,7 +131,7 @@ class User:
             "name": self._name,
             "lastname": self._lastname,
             "email": self._email,
-            "orders": orders   # 🔥 nested here
+            "orders": orders 
         }
 
 

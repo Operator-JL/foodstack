@@ -5,6 +5,9 @@ from .order_product_ingredient import OrderProductIngredient
 class RecordNotFoundException(Exception):
     pass
 
+# -------------------------
+# ATTRIBUTES
+# -------------------------
 class OrderProduct:
     def __init__(self, *args):
         self._id = 0
@@ -29,9 +32,13 @@ class OrderProduct:
                 self._created_at
             ) = args
 
+    # -------------------------
+    # PROPERTIES
+    # -------------------------
     @property
     def id(self):
         return self._id
+
     @id.setter
     def id(self, value):
         self._id = value
@@ -39,6 +46,7 @@ class OrderProduct:
     @property
     def order_id(self):
         return self._order_id
+
     @order_id.setter
     def order_id(self, value):
         self._order_id = value
@@ -46,6 +54,7 @@ class OrderProduct:
     @property
     def product_id(self):
         return self._product_id
+
     @product_id.setter
     def product_id(self, value):
         self._product_id = value
@@ -53,6 +62,7 @@ class OrderProduct:
     @property
     def quantity(self):
         return self._quantity
+
     @quantity.setter
     def quantity(self, value):
         self._quantity = value
@@ -60,6 +70,7 @@ class OrderProduct:
     @property
     def price(self):
         return self._price
+
     @price.setter
     def price(self, value):
         self._price = value
@@ -67,6 +78,7 @@ class OrderProduct:
     @property
     def status(self):
         return self._status
+
     @status.setter
     def status(self, value):
         self._status = value
@@ -74,11 +86,17 @@ class OrderProduct:
     @property
     def created_at(self):
         return self._created_at
+
     @created_at.setter
     def created_at(self, value):
         self._created_at = value
 
+    # -------------------------
+    # METHODS
+    # -------------------------
+
     # GET BY ID
+    # -------------------------
     def load_by_id(self, id):
         try:
             with SQLServerConnection.get_connection() as conn:
@@ -102,12 +120,15 @@ class OrderProduct:
                     ) = row
                 else:
                     raise RecordNotFoundException(f"OrderProduct with id {id} was not found.")
+
         except Exception as e:
             raise e
 
+    # GET BY ORDER ID (WITH INGREDIENTS)
+    # -------------------------
     @staticmethod
     def get_by_order_id(order_id, conn):
-        list = []
+        result = []
         try:
             cursor = conn.cursor()
             cursor.execute("""
@@ -119,25 +140,31 @@ class OrderProduct:
             for row in cursor.fetchall():
                 op = OrderProduct(*row)
 
-                list.append({
+                # 🔥 Get ingredients for each order product
+                ingredients = OrderProductIngredient.get_by_order_product_id(op.id, conn)
+
+                result.append({
                     "id": op.id,
                     "order_id": op.order_id,
                     "product_id": op.product_id,
                     "quantity": op.quantity,
                     "price": float(op.price),
                     "status": op.status,
-                    "created_at": op.created_at.isoformat() if op.created_at else None
+                    "created_at": op.created_at.isoformat() if op.created_at else None,
+                    "ingredients": ingredients
                 })
 
         except Exception as ex:
             raise ex
 
-        return list
+        return result
 
+    # -------------------------
     # GET ALL
+    # -------------------------
     @staticmethod
     def get_all():
-        list = []
+        result = []
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
@@ -146,12 +173,18 @@ class OrderProduct:
                     FROM Order_Products
                     ORDER BY Id DESC
                 """)
+
                 for row in cursor.fetchall():
-                    list.append(OrderProduct(*row))
+                    result.append(OrderProduct(*row))
+
         except Exception as ex:
             print("error fetching order_products...", ex)
-        return list
 
+        return result
+
+    # -------------------------
+    # TO JSON
+    # -------------------------
     def to_json(self):
         return json.dumps({
             "id": self._id,
@@ -163,7 +196,9 @@ class OrderProduct:
             "created_at": self._created_at.isoformat() if self._created_at else None
         })
 
+    # -------------------------
     # INSERT
+    # -------------------------
     def add(self):
         try:
             with SQLServerConnection.get_connection() as conn:
@@ -179,5 +214,6 @@ class OrderProduct:
                     self._status
                 ))
                 conn.commit()
+
         except Exception as ex:
             raise ex
