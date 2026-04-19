@@ -22,8 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (demoNode) {
-    const demo = api.demoCredentials || {};
-    demoNode.textContent = `${demo.email || ''} / ${demo.password || ''}`;
+    demoNode.textContent = 'Uses live API credentials.';
   }
 
   function showMessage(text, isSuccess) {
@@ -45,22 +44,29 @@ document.addEventListener('DOMContentLoaded', () => {
     submitButton.disabled = true;
     showMessage('Signing in...', true);
 
-    const result = await api.authenticateStaff({
-      email: email,
-      password: password
-    });
+    try {
+      const result = await api.authenticateStaff({
+        email: email,
+        password: password
+      });
 
-    submitButton.disabled = false;
+      if (!result.ok) {
+        showMessage(result.message || 'Unable to sign in.', false);
+        return;
+      }
 
-    if (!result.ok) {
-      showMessage(result.message || 'Unable to sign in.', false);
-      return;
+      api.saveSession(result.user);
+      showMessage('Access granted. Redirecting...', true);
+      window.setTimeout(() => {
+        window.location.href = 'staff-home.html';
+      }, 300);
+    } catch (error) {
+      showMessage(
+        error instanceof Error ? error.message : 'Unable to sign in.',
+        false
+      );
+    } finally {
+      submitButton.disabled = false;
     }
-
-    api.saveSession(result.user);
-    showMessage('Access granted. Redirecting...', true);
-    window.setTimeout(() => {
-      window.location.href = 'staff-home.html';
-    }, 300);
   });
 });

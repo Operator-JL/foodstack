@@ -17,12 +17,15 @@
       <div class="auth-card">
         <h1>sign up</h1>
 
-        <form class="auth-form" data-static-form data-auth-target="login.html" novalidate>
-          <label for="signup-username">Username</label>
-          <input id="signup-username" name="username" type="text" placeholder="Choose a username" autocomplete="username" required>
+        <form id="customer-signup-form" class="auth-form" novalidate>
+          <label for="signup-name">Full name</label>
+          <input id="signup-name" name="name" type="text" placeholder="First and last name" autocomplete="name" required>
 
           <label for="signup-email">Email</label>
           <input id="signup-email" name="email" type="email" placeholder="Enter your email" autocomplete="email" required>
+
+          <label for="signup-phone">Phone number</label>
+          <input id="signup-phone" name="phone" type="tel" placeholder="10-digit phone number" autocomplete="tel" required>
 
           <label for="signup-password">Password</label>
           <input id="signup-password" name="password" type="password" placeholder="Create a password" autocomplete="new-password" required>
@@ -32,12 +35,14 @@
 
           <button class="pill-btn pill-btn--primary auth-button" type="submit">Sign up</button>
         </form>
+        <p id="auth-inline-msg" class="auth-msg" aria-live="polite"></p>
 
         <p class="auth-link">Already have an account? <a href="login.html" aria-label="Back to login">Back to log in</a></p>
       </div>
     </section>
   </main>
 
+  <script src="js/api-client.js"></script>
   <script src="js/auth.js"></script>
 </body>
 </html>

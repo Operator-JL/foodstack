@@ -36,6 +36,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function formatMoney(value) {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -90,12 +99,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (!Array.isArray(items) || items.length === 0) {
+      bestSellersList.innerHTML = `
+        <li class="seller-item">
+          <div>
+            <p class="seller-item__name">No sales data yet</p>
+            <p class="seller-item__meta">Order-product records are empty.</p>
+          </div>
+          <strong>${formatMoney(0)}</strong>
+        </li>
+      `;
+      return;
+    }
+
     bestSellersList.innerHTML = items.map((item) => {
       return `
         <li class="seller-item">
           <div>
-            <p class="seller-item__name">${item.name}</p>
-            <p class="seller-item__meta">${item.units} units sold</p>
+            <p class="seller-item__name">${escapeHtml(item.name)}</p>
+            <p class="seller-item__meta">${Number(item.units || 0)} units sold</p>
           </div>
           <strong>${formatMoney(item.revenue)}</strong>
         </li>
@@ -108,13 +130,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (!Array.isArray(items) || items.length === 0) {
+      ordersBody.innerHTML = `
+        <tr>
+          <td colspan="5">No order records were returned by the API.</td>
+        </tr>
+      `;
+      return;
+    }
+
     ordersBody.innerHTML = items.map((item) => {
       const status = String(item.status || '').toLowerCase();
 
       return `
         <tr>
-          <td>${item.id}</td>
-          <td>${item.customer}</td>
+          <td>${escapeHtml(item.id)}</td>
+          <td>${escapeHtml(item.customer)}</td>
           <td><span class="status-badge" data-status="${status}">${capitalize(status)}</span></td>
           <td>${formatMoney(item.total)}</td>
           <td>${formatDate(item.createdAt)}</td>
@@ -128,27 +159,54 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (!Array.isArray(items) || items.length === 0) {
+      productsList.innerHTML = `
+        <article class="product-row">
+          <p class="product-row__name">No products available</p>
+          <p class="product-row__meta">The API returned no active products.</p>
+        </article>
+      `;
+      return;
+    }
+
     productsList.innerHTML = items.map((item) => {
+      const stockValue = Number.isFinite(Number(item.stock)) ? item.stock : 'N/A';
+
       return `
         <article class="product-row">
-          <p class="product-row__name">${item.name}</p>
-          <p class="product-row__meta">${item.category}</p>
+          <p class="product-row__name">${escapeHtml(item.name)}</p>
+          <p class="product-row__meta">${escapeHtml(item.category)}</p>
           <p class="product-row__meta">Price: ${formatMoney(item.price)}</p>
-          <p class="product-row__meta">Stock: ${item.stock}</p>
+          <p class="product-row__meta">Stock: ${stockValue}</p>
         </article>
       `;
     }).join('');
   }
 
   try {
+    if (inlineMessage) {
+      inlineMessage.textContent = 'Loading dashboard from live API...';
+    }
+
     const snapshot = await api.loadDashboardSnapshot();
     renderSummary(snapshot.summary);
     renderBestSellers(snapshot.bestSellers);
     renderRecentOrders(snapshot.recentOrders);
     renderProducts(snapshot.products);
+
+    if (inlineMessage) {
+      const warnings = Array.isArray(snapshot.warnings)
+        ? snapshot.warnings.filter(Boolean)
+        : [];
+
+      inlineMessage.textContent = warnings.length
+        ? `Partial data loaded. ${warnings.join(' | ')}`
+        : '';
+    }
   } catch (error) {
     if (inlineMessage) {
-      inlineMessage.textContent = 'Could not load dashboard data.';
+      inlineMessage.textContent =
+        error instanceof Error ? error.message : 'Could not load dashboard data.';
     }
   }
 });

@@ -17,15 +17,16 @@
       <div class="auth-card">
         <h1>log in</h1>
 
-        <form class="auth-form" data-static-form data-auth-target="home.html" novalidate>
-          <label for="username">Username</label>
-          <input id="username" name="username" type="text" placeholder="Enter your username" autocomplete="username" required>
+        <form id="customer-login-form" class="auth-form" novalidate>
+          <label for="login-email">Email</label>
+          <input id="login-email" name="email" type="email" placeholder="Enter your email" autocomplete="email" required>
 
-          <label for="password">Password</label>
-          <input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+          <label for="login-password">Password</label>
+          <input id="login-password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
 
           <button class="pill-btn pill-btn--primary auth-button" type="submit">Log in</button>
         </form>
+        <p id="auth-inline-msg" class="auth-msg" aria-live="polite"></p>
 
         <p class="auth-link">Don&apos;t have an account? <a href="signup.html" aria-label="Create account">Sign up / Create account</a></p>
         <p class="auth-staff-link">FoodStack staff? <a href="admin-login.html" aria-label="Staff sign in">Sign in here</a></p>
@@ -33,6 +34,7 @@
     </section>
   </main>
 
+  <script src="js/api-client.js"></script>
   <script src="js/auth.js"></script>
 </body>
 </html>
