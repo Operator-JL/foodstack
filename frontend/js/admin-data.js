@@ -1,104 +1,45 @@
 (function () {
   const ADMIN_SESSION_KEY = 'foodstack-admin-session';
+  const KNOWN_STAFF_ROLES = new Set(['admin', 'staff', 'manager']);
 
-  const DEMO_STAFF = [
-    {
-      id: 'staff-001',
-      name: 'FoodStack Manager',
-      role: 'admin',
-      email: 'staff@foodstack.com',
-      password: 'admin1234'
-    }
-  ];
-
-  const MOCK_PRODUCTS = [
-    { id: 'stack-burger', name: 'Stack Burger', category: 'Burgers', price: 8.99, stock: 42 },
-    { id: 'double-burger', name: 'Double Burger', category: 'Burgers', price: 10.99, stock: 31 },
-    { id: 'bbq-bacon-burger', name: 'BBQ Bacon Burger', category: 'Burgers', price: 11.49, stock: 27 },
-    { id: 'spicy-burger', name: 'Spicy Burger', category: 'Burgers', price: 9.99, stock: 34 },
-    { id: 'burrito-stack', name: 'Burrito Stack', category: 'Burritos', price: 7.99, stock: 55 },
-    { id: 'chicken-burrito', name: 'Chicken Burrito', category: 'Burritos', price: 8.49, stock: 47 },
-    { id: 'veggie-burrito', name: 'Veggie Burrito', category: 'Burritos', price: 7.59, stock: 39 },
-    { id: 'spicy-beef-burrito', name: 'Spicy Beef Burrito', category: 'Burritos', price: 8.99, stock: 24 },
-    { id: 'taco-supreme', name: 'Taco Supreme', category: 'Tacos', price: 6.99, stock: 44 },
-    { id: 'classic-taco', name: 'Classic Taco', category: 'Tacos', price: 5.99, stock: 52 },
-    { id: 'chicken-taco', name: 'Chicken Taco', category: 'Tacos', price: 6.49, stock: 41 },
-    { id: 'spicy-taco', name: 'Spicy Taco', category: 'Tacos', price: 6.79, stock: 36 },
-    { id: 'fries', name: 'Fries', category: 'Sides', price: 3.49, stock: 90 },
-    { id: 'onion-rings', name: 'Onion Rings', category: 'Sides', price: 4.29, stock: 63 },
-    { id: 'nachos', name: 'Nachos', category: 'Sides', price: 4.99, stock: 58 },
-    { id: 'cheese-bites', name: 'Cheese Bites', category: 'Sides', price: 4.79, stock: 50 },
-    { id: 'soda', name: 'Soda', category: 'Drinks', price: 2.49, stock: 120 },
-    { id: 'lemonade', name: 'Lemonade', category: 'Drinks', price: 2.99, stock: 84 },
-    { id: 'iced-tea', name: 'Iced Tea', category: 'Drinks', price: 2.89, stock: 80 },
-    { id: 'milkshake', name: 'Milkshake', category: 'Drinks', price: 4.99, stock: 40 }
-  ];
-
-  const MOCK_RECENT_ORDERS = [
-    { id: 'ORD-3094', customer: 'Ana Ruiz', total: 29.47, status: 'completed', createdAt: '2026-04-13T09:21:00Z' },
-    { id: 'ORD-3093', customer: 'Jorge M.', total: 16.97, status: 'preparing', createdAt: '2026-04-13T09:16:00Z' },
-    { id: 'ORD-3092', customer: 'Mariana L.', total: 41.84, status: 'completed', createdAt: '2026-04-13T08:58:00Z' },
-    { id: 'ORD-3091', customer: 'Dylan S.', total: 12.98, status: 'pending', createdAt: '2026-04-13T08:47:00Z' },
-    { id: 'ORD-3090', customer: 'Paola H.', total: 22.39, status: 'completed', createdAt: '2026-04-13T08:35:00Z' },
-    { id: 'ORD-3089', customer: 'Carmen T.', total: 18.78, status: 'preparing', createdAt: '2026-04-13T08:22:00Z' }
-  ];
-
-  const MOCK_BEST_SELLERS = [
-    { id: 'stack-burger', name: 'Stack Burger', units: 128, revenue: 1150.72 },
-    { id: 'fries', name: 'Fries', units: 201, revenue: 701.49 },
-    { id: 'chicken-burrito', name: 'Chicken Burrito', units: 104, revenue: 882.96 },
-    { id: 'taco-supreme', name: 'Taco Supreme', units: 96, revenue: 671.04 }
-  ];
-
-  const MOCK_RECENT_ACTIVITY = [
-    { id: 'ACT-101', title: 'Inventory alert', detail: 'Spicy Beef Burrito stock is below threshold.', level: 'warning', createdAt: '2026-04-13T09:24:00Z' },
-    { id: 'ACT-102', title: 'Order completed', detail: 'Order ORD-3094 was marked completed.', level: 'info', createdAt: '2026-04-13T09:22:00Z' },
-    { id: 'ACT-103', title: 'Menu update pending', detail: 'Review pricing adjustments for Drinks category.', level: 'neutral', createdAt: '2026-04-13T09:10:00Z' },
-    { id: 'ACT-104', title: 'Shift reminder', detail: 'Lunch shift handoff starts at 11:30 AM.', level: 'neutral', createdAt: '2026-04-13T08:55:00Z' }
-  ];
-
-  const MOCK_ANALYTICS_PREVIEW = [
-    { label: 'Mon', orders: 38, revenue: 412.3 },
-    { label: 'Tue', orders: 44, revenue: 509.1 },
-    { label: 'Wed', orders: 41, revenue: 476.8 },
-    { label: 'Thu', orders: 53, revenue: 622.4 },
-    { label: 'Fri', orders: 58, revenue: 718.9 },
-    { label: 'Sat', orders: 47, revenue: 541.6 },
-    { label: 'Sun', orders: 35, revenue: 398.2 }
-  ];
-
-  function cloneData(source) {
-    return JSON.parse(JSON.stringify(source));
+  function normalizeText(value) {
+    return String(value || '').trim();
   }
 
-  function normalizeEmail(value) {
-    return String(value || '').trim().toLowerCase();
+  function normalizeNumber(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
-  async function authenticateStaff(credentials) {
-    const email = normalizeEmail(credentials && credentials.email);
-    const password = String((credentials && credentials.password) || '');
-
-    const match = DEMO_STAFF.find((staff) => {
-      return normalizeEmail(staff.email) === email && staff.password === password;
-    });
-
-    if (!match) {
-      return {
-        ok: false,
-        message: 'Invalid staff credentials.'
-      };
+  function normalizeBoolean(value) {
+    if (typeof value === 'boolean') {
+      return value;
     }
 
-    return {
-      ok: true,
-      user: {
-        id: match.id,
-        name: match.name,
-        role: match.role,
-        email: match.email
-      }
-    };
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+
+    const normalized = normalizeText(value).toLowerCase();
+    return normalized !== '0' && normalized !== 'false' && normalized !== 'inactive';
+  }
+
+  function parseDateSafe(value) {
+    if (!value) {
+      return null;
+    }
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function toIsoSafe(value) {
+    const parsed = parseDateSafe(value);
+    return parsed ? parsed.toISOString() : null;
+  }
+
+  function roleIsStaff(role) {
+    return KNOWN_STAFF_ROLES.has(normalizeText(role).toLowerCase());
   }
 
   function saveSession(user) {
@@ -129,8 +70,139 @@
     window.localStorage.removeItem(ADMIN_SESSION_KEY);
   }
 
+  function userDisplayName(user) {
+    const first = normalizeText(user && user.name);
+    const last = normalizeText(user && user.lastname);
+    const full = `${first} ${last}`.trim();
+
+    return full || normalizeText(user && user.email) || 'Unknown customer';
+  }
+
+  function normalizeCategory(item) {
+    return {
+      id: normalizeText(item && item.id),
+      name: normalizeText(item && item.name),
+      status: normalizeBoolean(item && item.status)
+    };
+  }
+
+  function normalizeProduct(item, categoryMap) {
+    const categoryId = normalizeText(item && item.category_id);
+    const embeddedCategoryName =
+      item && item.category && typeof item.category === 'object'
+        ? normalizeText(item.category.name)
+        : '';
+    const fallbackCategoryName = categoryMap.get(categoryId) || 'Uncategorized';
+    const categoryName =
+      embeddedCategoryName ||
+      normalizeText(item && (item.category_name || item.categoryName || item.category)) ||
+      fallbackCategoryName;
+
+    const rawStock = item && item.stock;
+    const stockParsed = Number(rawStock);
+    const stock =
+      Number.isFinite(stockParsed) && String(rawStock).trim() !== ''
+        ? stockParsed
+        : null;
+
+    return {
+      id: normalizeText(item && item.id),
+      name: normalizeText(item && item.name) || 'Unnamed product',
+      category: categoryName,
+      categoryId: categoryId,
+      price: normalizeNumber(item && item.price),
+      stock: stock,
+      image: normalizeText(item && item.image),
+      description: normalizeText(item && item.description),
+      status: normalizeBoolean(item && item.status),
+      createdAt: toIsoSafe(item && item.created_at),
+      raw: item
+    };
+  }
+
+  function normalizeUser(item) {
+    return {
+      id: normalizeText(item && item.id),
+      name: normalizeText(item && item.name),
+      lastname: normalizeText(item && item.lastname),
+      email: normalizeText(item && item.email),
+      phoneNumber: normalizeText(item && item.phoneNumber),
+      role: normalizeText(item && item.role),
+      status: normalizeBoolean(item && item.status),
+      createdAt: toIsoSafe(item && item.created_at),
+      raw: item
+    };
+  }
+
+  function normalizeOrder(item) {
+    const idText = normalizeText(item && item.id);
+    const idNumber = Number(idText);
+    const normalizedId = Number.isFinite(idNumber) ? String(idNumber) : idText;
+
+    return {
+      id: normalizedId,
+      displayId: normalizedId ? `ORD-${normalizedId}` : 'ORD-UNKNOWN',
+      userId: normalizeText(item && item.user_id),
+      total: normalizeNumber(item && item.total),
+      status: normalizeText(item && item.status).toLowerCase() || 'pending',
+      createdAt: toIsoSafe(item && (item.datetime || item.created_at)),
+      raw: item
+    };
+  }
+
+  function normalizeOrderProduct(item) {
+    return {
+      id: normalizeText(item && item.id),
+      orderId: normalizeText(item && item.order_id),
+      productId: normalizeText(item && item.product_id),
+      quantity: Math.max(0, Math.floor(normalizeNumber(item && item.quantity))),
+      price: normalizeNumber(item && item.price),
+      status: normalizeBoolean(item && item.status),
+      createdAt: toIsoSafe(item && item.created_at),
+      raw: item
+    };
+  }
+
+  function normalizeIngredient(item) {
+    return {
+      id: normalizeText(item && item.id),
+      name: normalizeText(item && item.name),
+      extraPrice: normalizeNumber(item && item.extra_price),
+      status: normalizeBoolean(item && item.status)
+    };
+  }
+
+  function normalizeProductIngredient(item) {
+    return {
+      id: normalizeText(item && item.id),
+      productId: normalizeText(item && item.product_id),
+      ingredientId: normalizeText(item && item.ingredient_id),
+      maxIngredients: normalizeNumber(item && item.max_ingredients),
+      defaultIngredients: normalizeBoolean(item && item.default_ingredients),
+      status: normalizeBoolean(item && item.status)
+    };
+  }
+
+  function sortByNewest(items) {
+    return items.slice().sort((a, b) => {
+      const dateA = parseDateSafe(a && a.createdAt);
+      const dateB = parseDateSafe(b && b.createdAt);
+      const scoreA = dateA ? dateA.getTime() : 0;
+      const scoreB = dateB ? dateB.getTime() : 0;
+
+      if (scoreA !== scoreB) {
+        return scoreB - scoreA;
+      }
+
+      return normalizeText(b && b.id).localeCompare(normalizeText(a && a.id));
+    });
+  }
+
   function calculateSummary(products, orders) {
-    const estimatedRevenue = orders.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const estimatedRevenue = orders.reduce(
+      (sum, item) => sum + normalizeNumber(item && item.total),
+      0
+    );
 
     return {
       totalProducts: products.length,
@@ -139,53 +211,570 @@
     };
   }
 
-  async function loadDashboardSnapshot() {
-    const products = cloneData(MOCK_PRODUCTS);
-    const recentOrders = cloneData(MOCK_RECENT_ORDERS);
-    const bestSellers = cloneData(MOCK_BEST_SELLERS);
+  function buildBestSellers(orderProducts, productMap) {
+    const aggregate = new Map();
+
+    orderProducts.forEach((item) => {
+      if (!item.status) {
+        return;
+      }
+
+      const key = normalizeText(item.productId);
+
+      if (!key) {
+        return;
+      }
+
+      const quantity = Math.max(0, normalizeNumber(item.quantity));
+      const lineRevenue = quantity * normalizeNumber(item.price);
+      const current = aggregate.get(key) || {
+        productId: key,
+        units: 0,
+        revenue: 0
+      };
+
+      current.units += quantity;
+      current.revenue += lineRevenue;
+      aggregate.set(key, current);
+    });
+
+    return Array.from(aggregate.values())
+      .sort((a, b) => {
+        if (a.units !== b.units) {
+          return b.units - a.units;
+        }
+
+        return b.revenue - a.revenue;
+      })
+      .slice(0, 6)
+      .map((item) => {
+        const product = productMap.get(item.productId);
+
+        return {
+          id: item.productId,
+          name: product ? product.name : `Product #${item.productId}`,
+          units: item.units,
+          revenue: item.revenue
+        };
+      });
+  }
+
+  function buildRecentOrders(orders, userMap) {
+    return sortByNewest(orders)
+      .slice(0, 8)
+      .map((item) => {
+        const user = userMap.get(item.userId);
+
+        return {
+          id: item.displayId,
+          customer: user ? userDisplayName(user) : `User #${item.userId || 'N/A'}`,
+          total: item.total,
+          status: item.status,
+          createdAt: item.createdAt
+        };
+      });
+  }
+
+  function buildProductsForDashboard(products) {
+    return products.map((item) => ({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      price: item.price,
+      stock: item.stock
+    }));
+  }
+
+  function buildQuickStats(orders, products) {
+    const now = new Date();
+    const sameDay = (value) => {
+      const parsed = parseDateSafe(value);
+
+      if (!parsed) {
+        return false;
+      }
+
+      return (
+        parsed.getFullYear() === now.getFullYear() &&
+        parsed.getMonth() === now.getMonth() &&
+        parsed.getDate() === now.getDate()
+      );
+    };
+
+    const todayOrders = orders.filter((order) => sameDay(order.createdAt));
+    const pendingOrders = orders.filter((order) => {
+      return order.status === 'pending' || order.status === 'preparing';
+    });
+
+    const hasStockInApi = products.some((item) => Number.isFinite(Number(item.stock)));
+    const lowStockItems = hasStockInApi
+      ? products.filter((item) => Number(item.stock) <= 30).length
+      : 'N/A';
 
     return {
-      summary: calculateSummary(products, recentOrders),
-      bestSellers: bestSellers,
-      recentOrders: recentOrders,
-      products: products
+      ordersToday: todayOrders.length,
+      pendingOrders: pendingOrders.length,
+      revenueToday: todayOrders.reduce((sum, order) => sum + order.total, 0),
+      lowStockItems: lowStockItems
+    };
+  }
+
+  function buildAnalyticsPreview(orders) {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - 6);
+
+    const buckets = [];
+
+    for (let i = 0; i < 7; i += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+
+      buckets.push({
+        key: date.toISOString().slice(0, 10),
+        label: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        orders: 0,
+        revenue: 0
+      });
+    }
+
+    const byKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+
+    orders.forEach((order) => {
+      const parsed = parseDateSafe(order.createdAt);
+
+      if (!parsed) {
+        return;
+      }
+
+      const key = parsed.toISOString().slice(0, 10);
+      const bucket = byKey.get(key);
+
+      if (!bucket) {
+        return;
+      }
+
+      bucket.orders += 1;
+      bucket.revenue += order.total;
+    });
+
+    return buckets;
+  }
+
+  function buildRecentActivity(orders, products, ingredients, productIngredients) {
+    const activities = [];
+
+    sortByNewest(orders)
+      .slice(0, 4)
+      .forEach((order) => {
+        const status = order.status || 'pending';
+        activities.push({
+          id: `ORDER-${order.id}`,
+          title: `Order ${order.displayId}`,
+          detail: `Status: ${status}. Total: $${order.total.toFixed(2)}.`,
+          level: status === 'completed' ? 'info' : status === 'pending' ? 'warning' : 'neutral',
+          createdAt: order.createdAt
+        });
+      });
+
+    activities.push({
+      id: 'CATALOG-SUMMARY',
+      title: 'Catalog sync',
+      detail: `${products.length} products and ${ingredients.length} ingredients loaded from API.`,
+      level: 'info',
+      createdAt: new Date().toISOString()
+    });
+
+    activities.push({
+      id: 'REL-SUMMARY',
+      title: 'Product-ingredient links',
+      detail: `${productIngredients.length} product-ingredient relations available.`,
+      level: 'neutral',
+      createdAt: new Date().toISOString()
+    });
+
+    return activities.slice(0, 8);
+  }
+
+  async function fetchListWithFallback(loader, label) {
+    try {
+      const raw = await loader();
+
+      return {
+        items: Array.isArray(raw) ? raw : [],
+        warning: null
+      };
+    } catch (error) {
+      return {
+        items: [],
+        warning: `${label}: ${
+          error instanceof Error ? error.message : 'Unexpected API error.'
+        }`
+      };
+    }
+  }
+
+  function canUseDevFallback() {
+    const runtime = window.FOODSTACK_RUNTIME;
+    return runtime ? Boolean(runtime.DEV_FALLBACK_MODE) : true;
+  }
+
+  function buildDemoFallbackData() {
+    const nowIso = new Date().toISOString();
+    const demoCatalog = window.FOODSTACK_DEMO_CATALOG || {};
+    const demoCategoryNames = Array.isArray(demoCatalog.categories)
+      ? demoCatalog.categories
+      : [];
+    const demoProductsRaw = Array.isArray(demoCatalog.products)
+      ? demoCatalog.products
+      : [];
+
+    const categories = demoCategoryNames.map((name, index) => ({
+      id: String(index + 1),
+      name: normalizeText(name),
+      status: true
+    }));
+    const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
+    const products = demoProductsRaw
+      .map((item) => normalizeProduct(item, categoryMap))
+      .filter((item) => item.status)
+      .map((item, index) => ({
+        ...item,
+        stock: Number.isFinite(Number(item.stock)) ? Number(item.stock) : 40 - (index % 5) * 4
+      }));
+
+    const users = [
+      {
+        id: 'demo-customer',
+        name: 'Demo',
+        lastname: 'User',
+        email: 'demo.customer@foodstack.local',
+        phoneNumber: '0000000000',
+        role: 'customer',
+        status: true,
+        createdAt: nowIso
+      }
+    ];
+
+    const demoOrders = [
+      {
+        id: '5001',
+        displayId: 'ORD-5001',
+        userId: 'demo-customer',
+        total: 25.47,
+        status: 'completed',
+        createdAt: nowIso
+      },
+      {
+        id: '5002',
+        displayId: 'ORD-5002',
+        userId: 'demo-customer',
+        total: 13.98,
+        status: 'preparing',
+        createdAt: nowIso
+      },
+      {
+        id: '5003',
+        displayId: 'ORD-5003',
+        userId: 'demo-customer',
+        total: 32.5,
+        status: 'pending',
+        createdAt: nowIso
+      }
+    ];
+
+    const topProducts = products.slice(0, 4);
+    const orderProducts = topProducts.map((product, index) => ({
+      id: `OP-DEMO-${index + 1}`,
+      orderId: demoOrders[index % demoOrders.length].id,
+      productId: product.id,
+      quantity: index + 1,
+      price: product.price,
+      status: true,
+      createdAt: nowIso
+    }));
+
+    const ingredients = [
+      {
+        id: 'demo-ing-1',
+        name: 'Cheddar Cheese',
+        extraPrice: 1.5,
+        status: true
+      },
+      {
+        id: 'demo-ing-2',
+        name: 'Bacon',
+        extraPrice: 2.0,
+        status: true
+      }
+    ];
+
+    const productIngredients = products.slice(0, 2).map((product, index) => ({
+      id: `PI-DEMO-${index + 1}`,
+      productId: product.id,
+      ingredientId: ingredients[index % ingredients.length].id,
+      maxIngredients: 3,
+      defaultIngredients: index === 0,
+      status: true
+    }));
+
+    return {
+      categories: categories,
+      products: products,
+      users: users,
+      orders: demoOrders,
+      orderProducts: orderProducts,
+      ingredients: ingredients,
+      productIngredients: productIngredients
+    };
+  }
+
+  async function loadBaseData() {
+    const api = window.FOODSTACK_API;
+    const devFallback = canUseDevFallback();
+
+    const fallbackResult = {
+      items: [],
+      warning: 'API client is not available.'
+    };
+
+    const [
+      categoriesResult,
+      productsResult,
+      usersResult,
+      ordersResult,
+      orderProductsResult,
+      ingredientsResult,
+      productIngredientsResult
+    ] = api
+      ? await Promise.all([
+          fetchListWithFallback(() => api.getCategories(), 'Categories endpoint failed'),
+          fetchListWithFallback(() => api.getProducts(), 'Products endpoint failed'),
+          fetchListWithFallback(() => api.getUsers(), 'Users endpoint failed'),
+          fetchListWithFallback(() => api.getOrders(), 'Orders endpoint failed'),
+          fetchListWithFallback(
+            () => api.getOrderProducts(),
+            'Order-products endpoint failed'
+          ),
+          fetchListWithFallback(() => api.getIngredients(), 'Ingredients endpoint failed'),
+          fetchListWithFallback(
+            () => api.getProductIngredients(),
+            'Product-ingredients endpoint failed'
+          )
+        ])
+      : [
+          fallbackResult,
+          fallbackResult,
+          fallbackResult,
+          fallbackResult,
+          fallbackResult,
+          fallbackResult,
+          fallbackResult
+        ];
+
+    const warnings = [
+      categoriesResult.warning,
+      productsResult.warning,
+      usersResult.warning,
+      ordersResult.warning,
+      orderProductsResult.warning,
+      ingredientsResult.warning,
+      productIngredientsResult.warning
+    ].filter(Boolean);
+    const dedupedWarnings = Array.from(new Set(warnings));
+
+    let categories = categoriesResult.items
+      .map(normalizeCategory)
+      .filter((item) => item.status);
+
+    const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
+
+    let products = productsResult.items
+      .map((item) => normalizeProduct(item, categoryMap))
+      .filter((item) => item.status);
+
+    let users = usersResult.items
+      .map(normalizeUser)
+      .filter((item) => item.status);
+
+    let orders = ordersResult.items
+      .map(normalizeOrder)
+      .filter((item) => item.id);
+
+    let orderProducts = orderProductsResult.items
+      .map(normalizeOrderProduct)
+      .filter((item) => item.id);
+
+    let ingredients = ingredientsResult.items
+      .map(normalizeIngredient)
+      .filter((item) => item.status);
+
+    let productIngredients = productIngredientsResult.items
+      .map(normalizeProductIngredient)
+      .filter((item) => item.status);
+
+    if (
+      devFallback &&
+      (!products.length || !categories.length || !users.length || !orders.length)
+    ) {
+      const demo = buildDemoFallbackData();
+
+      if (!categories.length) {
+        categories = demo.categories;
+      }
+
+      if (!products.length) {
+        products = demo.products;
+      }
+
+      if (!users.length) {
+        users = demo.users;
+      }
+
+      if (!orders.length) {
+        orders = demo.orders;
+      }
+
+      if (!orderProducts.length) {
+        orderProducts = demo.orderProducts;
+      }
+
+      if (!ingredients.length) {
+        ingredients = demo.ingredients;
+      }
+
+      if (!productIngredients.length) {
+        productIngredients = demo.productIngredients;
+      }
+
+      warnings.push('Using local demo fallback dataset in admin views.');
+    }
+
+    return {
+      categories: categories,
+      products: products,
+      users: users,
+      orders: orders,
+      orderProducts: orderProducts,
+      ingredients: ingredients,
+      productIngredients: productIngredients,
+      warnings: Array.from(new Set(dedupedWarnings.concat(warnings)))
+    };
+  }
+
+  async function authenticateStaff(credentials) {
+    const api = window.FOODSTACK_API;
+
+    if (!api) {
+      return {
+        ok: false,
+        message: 'API client is not available.'
+      };
+    }
+
+    const email = normalizeText(credentials && credentials.email).toLowerCase();
+    const password = normalizeText(credentials && credentials.password);
+
+    if (!email || !password) {
+      return {
+        ok: false,
+        message: 'Email and password are required.'
+      };
+    }
+
+    try {
+      const response = await api.login({
+        email: email,
+        password: password
+      });
+
+      const user =
+        response && typeof response === 'object'
+          ? response.user || response.data || null
+          : null;
+
+      if (!user || typeof user !== 'object') {
+        return {
+          ok: false,
+          message: 'Login response did not include user data.'
+        };
+      }
+
+      if (!roleIsStaff(user.role)) {
+        return {
+          ok: false,
+          message: 'This account does not have staff access.'
+        };
+      }
+
+      return {
+        ok: true,
+        user: {
+          id: normalizeText(user.id),
+          name: userDisplayName(user),
+          role: normalizeText(user.role),
+          email: normalizeText(user.email)
+        }
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Unable to sign in.'
+      };
+    }
+  }
+
+  async function loadDashboardSnapshot() {
+    const base = await loadBaseData();
+    const productMap = new Map(base.products.map((item) => [item.id, item]));
+    const userMap = new Map(base.users.map((item) => [item.id, item]));
+
+    return {
+      summary: calculateSummary(base.products, base.orders),
+      bestSellers: buildBestSellers(base.orderProducts, productMap),
+      recentOrders: buildRecentOrders(base.orders, userMap),
+      products: buildProductsForDashboard(base.products),
+      warnings: base.warnings
     };
   }
 
   async function loadStaffHomeSnapshot() {
-    const products = cloneData(MOCK_PRODUCTS);
-    const recentOrders = cloneData(MOCK_RECENT_ORDERS);
-    const recentActivity = cloneData(MOCK_RECENT_ACTIVITY);
-    const ordersToday = recentOrders.length;
-    const pendingOrders = recentOrders.filter((item) => {
-      const status = String(item.status || '').toLowerCase();
-      return status === 'pending' || status === 'preparing';
-    }).length;
-    const revenueToday = recentOrders.reduce((sum, item) => sum + Number(item.total || 0), 0);
-    const lowStockItems = products.filter((item) => Number(item.stock || 0) <= 30).length;
+    const base = await loadBaseData();
 
     return {
-      quickStats: {
-        ordersToday: ordersToday,
-        pendingOrders: pendingOrders,
-        revenueToday: revenueToday,
-        lowStockItems: lowStockItems
-      },
+      quickStats: buildQuickStats(base.orders, base.products),
       quickActions: [
-        { key: 'review-menu', title: 'Review menu', description: 'Verify product names, prices, and categories.', href: 'menu.html' },
-        { key: 'latest-orders', title: 'Check latest orders', description: 'Open the latest order stream and status queue.', href: 'admin-dashboard.html#recent-orders-panel' },
-        { key: 'manage-orders', title: 'Manage orders', description: 'Go to detailed order management and fulfillment view.', href: 'admin-dashboard.html#recent-orders-panel' }
+        {
+          key: 'review-menu',
+          title: 'Review menu',
+          description: 'Verify product names, prices, and categories.',
+          href: 'menu.html'
+        },
+        {
+          key: 'latest-orders',
+          title: 'Check latest orders',
+          description: 'Open the latest order stream and status queue.',
+          href: 'admin-dashboard.html#recent-orders-panel'
+        },
+        {
+          key: 'manage-orders',
+          title: 'Manage orders',
+          description: 'Go to detailed order management and fulfillment view.',
+          href: 'admin-dashboard.html#recent-orders-panel'
+        }
       ],
-      recentActivity: recentActivity,
-      analyticsPreview: cloneData(MOCK_ANALYTICS_PREVIEW)
+      recentActivity: buildRecentActivity(
+        base.orders,
+        base.products,
+        base.ingredients,
+        base.productIngredients
+      ),
+      analyticsPreview: buildAnalyticsPreview(base.orders),
+      warnings: base.warnings
     };
   }
 
   window.FOODSTACK_ADMIN_API = {
-    demoCredentials: {
-      email: DEMO_STAFF[0].email,
-      password: DEMO_STAFF[0].password
-    },
     authenticateStaff: authenticateStaff,
     saveSession: saveSession,
     readSession: readSession,

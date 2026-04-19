@@ -30,6 +30,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     heroTitle.textContent = `Welcome back, ${sessionUser.name}`;
   }
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function formatMoney(value) {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -80,12 +89,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (!Array.isArray(actions) || actions.length === 0) {
+      actionsGrid.innerHTML = `
+        <article class="staff-action-card">
+          <h3>No quick actions</h3>
+          <p>Actions will appear when API modules are ready.</p>
+        </article>
+      `;
+      return;
+    }
+
     actionsGrid.innerHTML = actions.map((item) => {
       return `
         <article class="staff-action-card">
-          <h3>${item.title}</h3>
-          <p>${item.description}</p>
-          <a class="pill-btn pill-btn--ghost" href="${item.href}">Open</a>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.description)}</p>
+          <a class="pill-btn pill-btn--ghost" href="${escapeHtml(item.href)}">Open</a>
         </article>
       `;
     }).join('');
@@ -96,13 +115,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (!Array.isArray(activity) || activity.length === 0) {
+      activityList.innerHTML = `
+        <li class="staff-activity-item">
+          <h3>No recent activity</h3>
+          <p>The API returned no activity yet.</p>
+        </li>
+      `;
+      return;
+    }
+
     activityList.innerHTML = activity.map((item) => {
       return `
         <li class="staff-activity-item">
-          <h3>${item.title}</h3>
-          <p>${item.detail}</p>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.detail)}</p>
           <span class="staff-activity-meta">
-            <span class="staff-activity-dot" data-level="${item.level}"></span>
+            <span class="staff-activity-dot" data-level="${escapeHtml(item.level)}"></span>
             ${formatDate(item.createdAt)}
           </span>
         </li>
@@ -139,14 +168,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   try {
+    if (inlineMessage) {
+      inlineMessage.textContent = 'Loading staff snapshot from live API...';
+    }
+
     const snapshot = await api.loadStaffHomeSnapshot();
     renderStats(snapshot.quickStats);
     renderActions(snapshot.quickActions);
     renderActivity(snapshot.recentActivity);
     renderAnalytics(snapshot.analyticsPreview);
+
+    if (inlineMessage) {
+      const warnings = Array.isArray(snapshot.warnings)
+        ? snapshot.warnings.filter(Boolean)
+        : [];
+
+      inlineMessage.textContent = warnings.length
+        ? `Partial data loaded. ${warnings.join(' | ')}`
+        : '';
+    }
   } catch (error) {
     if (inlineMessage) {
-      inlineMessage.textContent = 'Could not load staff home data.';
+      inlineMessage.textContent =
+        error instanceof Error ? error.message : 'Could not load staff home data.';
     }
   }
 });

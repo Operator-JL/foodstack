@@ -79,6 +79,21 @@
   margin-top: 0.5rem;
 }
 
+.auth-button--demo {
+  width: 100%;
+}
+
+.auth-msg {
+  min-height: 1.2rem;
+  margin: 0.7rem 0 0;
+  font-size: 0.84rem;
+  color: #9b2f2f;
+}
+
+.auth-msg.is-success {
+  color: #245e2f;
+}
+
 .auth-link {
   margin: 1rem 0 0;
   text-align: center;

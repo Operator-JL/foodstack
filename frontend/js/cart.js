@@ -1,5 +1,7 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const data = window.FOODSTACK_DATA;
+  const api = window.FOODSTACK_API;
+  const runtime = window.FOODSTACK_RUNTIME || {};
 
   if (!data) {
     return;
@@ -11,6 +13,50 @@ document.addEventListener('DOMContentLoaded', () => {
   const feeNode = document.getElementById('summary-fee');
   const totalNode = document.getElementById('summary-total');
   const proceedButton = document.getElementById('proceed-order-btn');
+
+  let lastSummary = { subtotal: 0, fee: 0, total: 0 };
+  let lastItems = [];
+
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function setProceedState(loading, label) {
+    if (!proceedButton) {
+      return;
+    }
+
+    proceedButton.disabled = Boolean(loading);
+    proceedButton.textContent = label || 'Proceed to Order';
+  }
+
+  function showInlineMessage(message) {
+    if (!list) {
+      return;
+    }
+
+    const existing = list.querySelector('[data-cart-inline-msg]');
+
+    if (existing) {
+      existing.textContent = message || '';
+      return;
+    }
+
+    if (!message) {
+      return;
+    }
+
+    const node = document.createElement('p');
+    node.setAttribute('data-cart-inline-msg', '1');
+    node.className = 'menu-note';
+    node.textContent = message;
+    list.prepend(node);
+  }
 
   function pulseValue(node) {
     if (!node) {
@@ -77,6 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const items = getItems();
+    lastItems = items.slice();
 
     if (items.length === 0) {
       list.innerHTML = `
@@ -94,28 +141,41 @@ document.addEventListener('DOMContentLoaded', () => {
         proceedButton.disabled = true;
       }
     } else {
-      list.innerHTML = items.map((item) => {
-        const subtotal = item.qty * item.price;
+      list.innerHTML = items
+        .map((item) => {
+          const subtotal = item.qty * item.price;
+          const name = escapeHtml(item.name);
+          const description = escapeHtml(item.description);
+          const image = escapeHtml(item.image);
+          const itemId = escapeHtml(item.id);
 
-        return `
-          <article class="cart-item">
-            <img class="cart-item__image" src="${item.image}" alt="${item.name}">
-            <div>
-              <h3 class="cart-item__title">${item.name}</h3>
-              <p class="cart-item__description">${item.description}</p>
-              <p class="cart-item__price">Unit: ${data.money(item.price)}</p>
-            </div>
-            <div class="cart-item__right">
-              <div class="qty-control" role="group" aria-label="Quantity for ${item.name}">
-                <button type="button" data-qty-action="dec" data-product-id="${item.id}">-</button>
-                <span>${item.qty}</span>
-                <button type="button" data-qty-action="inc" data-product-id="${item.id}">+</button>
+          return `
+            <article class="cart-item">
+              <img
+                class="cart-item__image"
+                src="${image}"
+                alt="${name}"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+                onerror="this.onerror=null;this.src='assets/images/logo-foodstack.png';"
+              >
+              <div>
+                <h3 class="cart-item__title">${name}</h3>
+                <p class="cart-item__description">${description}</p>
+                <p class="cart-item__price">Unit: ${data.money(item.price)}</p>
               </div>
-              <p class="cart-item__subtotal">${data.money(subtotal)}</p>
-            </div>
-          </article>
-        `;
-      }).join('');
+              <div class="cart-item__right">
+                <div class="qty-control" role="group" aria-label="Quantity for ${name}">
+                  <button type="button" data-qty-action="dec" data-product-id="${itemId}">-</button>
+                  <span>${item.qty}</span>
+                  <button type="button" data-qty-action="inc" data-product-id="${itemId}">+</button>
+                </div>
+                <p class="cart-item__subtotal">${data.money(subtotal)}</p>
+              </div>
+            </article>
+          `;
+        })
+        .join('');
 
       bindActions();
 
@@ -125,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const summary = calculate(items);
+    lastSummary = summary;
     const count = items.reduce((sum, item) => sum + item.qty, 0);
 
     if (subtotalNode) {
@@ -145,5 +206,125 @@ document.addEventListener('DOMContentLoaded', () => {
     updateBadge(count);
   }
 
-  render();
+  function readCurrentUser() {
+    const raw = window.localStorage.getItem('foodstack-user');
+
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function submitOrder() {
+    if (!api) {
+      showInlineMessage('Order API is not available.');
+      return;
+    }
+
+    if (!lastItems.length) {
+      showInlineMessage('Your cart is empty.');
+      return;
+    }
+
+    const user = readCurrentUser();
+    const userId = Number(user && user.id);
+
+    if (!Number.isFinite(userId) || userId <= 0) {
+      showInlineMessage('Please log in before placing an order.');
+      return;
+    }
+
+    setProceedState(true, 'Placing order...');
+
+    try {
+      await api.createOrder({
+        user_id: userId,
+        total: Number(lastSummary.total.toFixed(2)),
+        status: 'pending'
+      });
+
+      /*
+        The current backend response for /order does not return the new order id,
+        so order-product rows cannot be linked safely yet from the frontend.
+      */
+
+      data.clearCart();
+      render();
+      showInlineMessage(
+        'Order was created successfully. Product line linking awaits backend order id response.'
+      );
+    } catch (error) {
+      if (runtime.DEV_FALLBACK_MODE) {
+        const demoOrdersRaw = window.localStorage.getItem('foodstack-demo-orders');
+        let demoOrders = [];
+
+        try {
+          demoOrders = demoOrdersRaw ? JSON.parse(demoOrdersRaw) : [];
+        } catch (parseError) {
+          demoOrders = [];
+        }
+
+        demoOrders.push({
+          id: `DEMO-${Date.now()}`,
+          userId: userId,
+          total: Number(lastSummary.total.toFixed(2)),
+          items: lastItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            qty: item.qty,
+            unitPrice: item.price
+          })),
+          createdAt: new Date().toISOString(),
+          source: 'demo-fallback'
+        });
+
+        window.localStorage.setItem(
+          'foodstack-demo-orders',
+          JSON.stringify(demoOrders)
+        );
+
+        data.clearCart();
+        render();
+        showInlineMessage(
+          'API unavailable. Order was saved locally in demo mode.'
+        );
+        return;
+      }
+
+      showInlineMessage(
+        error instanceof Error ? error.message : 'Could not submit your order.'
+      );
+    } finally {
+      if (proceedButton) {
+        proceedButton.textContent = 'Proceed to Order';
+        proceedButton.disabled = lastItems.length === 0;
+      }
+    }
+  }
+
+  if (proceedButton) {
+    proceedButton.addEventListener('click', () => {
+      submitOrder();
+    });
+  }
+
+  try {
+    showInlineMessage('Loading cart data...');
+    const result = await data.loadCatalog();
+    render();
+    showInlineMessage(result && result.source === 'demo' ? result.warning : '');
+  } catch (error) {
+    if (list) {
+      list.innerHTML = '';
+    }
+
+    showInlineMessage(data.getCatalogError() || 'Could not load cart products from API.');
+    updateBadge(0);
+  }
 });

@@ -1,11 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
   const api = window.FOODSTACK_ADMIN_API;
+  const runtime = window.FOODSTACK_RUNTIME || {};
 
-  if (!api) {
-    return;
-  }
+  const sessionUser = api && typeof api.readSession === 'function' ? api.readSession() : null;
 
-  if (api.readSession()) {
+  if (sessionUser) {
     window.location.href = 'staff-home.html';
     return;
   }
@@ -16,19 +15,43 @@ document.addEventListener('DOMContentLoaded', () => {
   const submitButton = document.getElementById('admin-login-btn');
   const messageNode = document.getElementById('admin-auth-msg');
   const demoNode = document.getElementById('admin-demo-creds');
+  const demoAccessButton = document.getElementById('admin-demo-access-btn');
 
   if (!form || !emailInput || !passwordInput || !submitButton || !messageNode) {
     return;
   }
 
   if (demoNode) {
-    const demo = api.demoCredentials || {};
-    demoNode.textContent = `${demo.email || ''} / ${demo.password || ''}`;
+    demoNode.textContent = 'Uses live API credentials.';
   }
 
   function showMessage(text, isSuccess) {
     messageNode.textContent = text || '';
     messageNode.classList.toggle('is-success', Boolean(isSuccess));
+  }
+
+  function startDemoStaffSession() {
+    if (typeof runtime.startDemoStaffSession === 'function') {
+      return runtime.startDemoStaffSession();
+    }
+
+    const payload = {
+      id: 'demo-staff',
+      name: 'FoodStack Demo Staff',
+      role: 'admin',
+      email: 'demo.staff@foodstack.local'
+    };
+
+    window.localStorage.setItem(
+      'foodstack-admin-session',
+      JSON.stringify({
+        user: payload,
+        signedAt: new Date().toISOString(),
+        isDemo: true
+      })
+    );
+
+    return payload;
   }
 
   form.addEventListener('submit', async (event) => {
@@ -45,22 +68,45 @@ document.addEventListener('DOMContentLoaded', () => {
     submitButton.disabled = true;
     showMessage('Signing in...', true);
 
-    const result = await api.authenticateStaff({
-      email: email,
-      password: password
-    });
+    try {
+      if (!api || typeof api.authenticateStaff !== 'function') {
+        throw new Error('Staff login API is not available.');
+      }
 
-    submitButton.disabled = false;
+      const result = await api.authenticateStaff({
+        email: email,
+        password: password
+      });
 
-    if (!result.ok) {
-      showMessage(result.message || 'Unable to sign in.', false);
-      return;
+      if (!result.ok) {
+        showMessage(result.message || 'Unable to sign in.', false);
+        return;
+      }
+
+      api.saveSession(result.user);
+      showMessage('Access granted. Redirecting...', true);
+      window.setTimeout(() => {
+        window.location.href = 'staff-home.html';
+      }, 300);
+    } catch (error) {
+      const details = error instanceof Error ? error.message : 'Unable to sign in.';
+      const hint =
+        runtime.ALLOW_DEMO_AUTH || runtime.DEV_FALLBACK_MODE
+          ? ' You can enter Demo Staff Mode.'
+          : '';
+      showMessage(`${details}${hint}`, false);
+    } finally {
+      submitButton.disabled = false;
     }
-
-    api.saveSession(result.user);
-    showMessage('Access granted. Redirecting...', true);
-    window.setTimeout(() => {
-      window.location.href = 'staff-home.html';
-    }, 300);
   });
+
+  if (demoAccessButton) {
+    demoAccessButton.addEventListener('click', () => {
+      startDemoStaffSession();
+      showMessage('Demo staff session started. Redirecting...', true);
+      window.setTimeout(() => {
+        window.location.href = 'staff-home.html';
+      }, 250);
+    });
+  }
 });
