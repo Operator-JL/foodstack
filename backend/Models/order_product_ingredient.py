@@ -68,6 +68,41 @@ class OrderProductIngredient:
     def created_at(self, value):
         self._created_at = value
 
+    @staticmethod
+    def get_by_order_product_id(order_product_id, conn):
+        result = []
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT Id, Order_Product_Id, Ingredient_Id, Quantity, Status, Created_At
+                FROM Order_Product_Ingredients
+                WHERE Order_Product_Id = ?
+            """, order_product_id)
+
+            for row in cursor.fetchall():
+                (
+                    _id,
+                    _order_product_id,
+                    _ingredient_id,
+                    _quantity,
+                    _status,
+                    _created_at
+                ) = row
+
+                result.append({
+                    "id": _id,
+                    "order_product_id": _order_product_id,
+                    "ingredient_id": _ingredient_id,
+                    "quantity": _quantity,
+                    "status": _status,
+                    "created_at": _created_at.isoformat() if _created_at else None
+                })
+
+        except Exception as ex:
+            raise ex
+
+        return result
+
     # GET BY ID
     def load_by_id(self, id):
         try:
