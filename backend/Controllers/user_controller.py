@@ -1,6 +1,6 @@
-from flask import jsonify, Blueprint, request, make_response
 import json
-
+from flask import jsonify, Blueprint, request, make_response
+from ..Infrastructure.SQLServerConnection import *
 from backend.Models.user import User
 from ..Security.Auth import require_auth, generate_token
 
