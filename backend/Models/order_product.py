@@ -105,6 +105,35 @@ class OrderProduct:
         except Exception as e:
             raise e
 
+    @staticmethod
+    def get_by_order_id(order_id, conn):
+        list = []
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT Id, Order_Id, Product_Id, Quantity, Price, Status, Created_At
+                FROM Order_Products
+                WHERE Order_Id = ?
+            """, order_id)
+
+            for row in cursor.fetchall():
+                op = OrderProduct(*row)
+
+                list.append({
+                    "id": op.id,
+                    "order_id": op.order_id,
+                    "product_id": op.product_id,
+                    "quantity": op.quantity,
+                    "price": float(op.price),
+                    "status": op.status,
+                    "created_at": op.created_at.isoformat() if op.created_at else None
+                })
+
+        except Exception as ex:
+            raise ex
+
+        return list
+
     # GET ALL
     @staticmethod
     def get_all():
