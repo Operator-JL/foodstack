@@ -4,7 +4,9 @@ from ..Infrastructure.SQLServerConnection import *
 class RecordNotFoundException(Exception):
     pass
 
-
+# -------------------------
+# ATTRIBUTES
+# -------------------------
 class Product:
     def __init__(self, *args):
         self._id = 0
@@ -16,6 +18,7 @@ class Product:
         self._status = 1
         self._created_at = None
 
+        # constructors
         if len(args) == 1:
             self.load_by_id(args[0])
         elif len(args) == 8:
@@ -34,116 +37,121 @@ class Product:
     # PROPERTIES
     # -------------------------
     @property
-    def id(self): return self._id
+    def id(self):
+        return self._id
 
     @property
-    def category_id(self): return self._category_id
+    def category_id(self):
+        return self._category_id
+
     @category_id.setter
-    def category_id(self, value): self._category_id = value
+    def category_id(self, value):
+        self._category_id = value
 
     @property
-    def name(self): return self._name
+    def name(self):
+        return self._name
+
     @name.setter
-    def name(self, value): self._name = value
+    def name(self, value):
+        self._name = value
 
     @property
-    def description(self): return self._description
+    def description(self):
+        return self._description
+
     @description.setter
-    def description(self, value): self._description = value
+    def description(self, value):
+        self._description = value
 
     @property
-    def image(self): return self._image
+    def image(self):
+        return self._image
+
     @image.setter
-    def image(self, value): self._image = value
+    def image(self, value):
+        self._image = value
 
     @property
-    def price(self): return self._price
+    def price(self):
+        return self._price
+
     @price.setter
-    def price(self, value): self._price = value
+    def price(self, value):
+        self._price = value
 
     @property
-    def status(self): return self._status
+    def status(self):
+        return self._status
+
     @status.setter
-    def status(self, value): self._status = value
+    def status(self, value):
+        self._status = value
 
     @property
-    def created_at(self): return self._created_at
+    def created_at(self):
+        return self._created_at
 
     # -------------------------
-    # DB METHODS
+    # METHODS
     # -------------------------
-    # GET BY ID 
+
+    # GET BY ID
     # -------------------------
     def load_by_id(self, product_id):
-        with SQLServerConnection.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT Id, Category_Id, Name, Description, Image, Price, Status, Created_At
-                FROM Products
-                WHERE Id = ?
-            """, (product_id,))
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT Id, Category_Id, Name, Description, Image, Price, Status, Created_At
+                    FROM Products
+                    WHERE Id = ?
+                """, (product_id,))
 
-            row = cursor.fetchone()
+                row = cursor.fetchone()
 
-            if not row:
-                raise RecordNotFoundException(f"Product {product_id} not found")
+                if not row:
+                    raise RecordNotFoundException(f"Product {product_id} not found")
 
-            (
-                self._id,
-                self._category_id,
-                self._name,
-                self._description,
-                self._image,
-                self._price,
-                self._status,
-                self._created_at
-            ) = row
+                (
+                    self._id,
+                    self._category_id,
+                    self._name,
+                    self._description,
+                    self._image,
+                    self._price,
+                    self._status,
+                    self._created_at
+                ) = row
 
-    # GETALL
+        except Exception as e:
+            raise e
+
+    # GET ALL
     # -------------------------
     @staticmethod
     def get_all():
-        products = []
-        with SQLServerConnection.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT Id, Category_Id, Name, Description, Image, Price, Status, Created_At
-                FROM Products
-                WHERE Status = 1
-                ORDER BY Name
-            """)
+        result = []
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT Id, Category_Id, Name, Description, Image, Price, Status, Created_At
+                    FROM Products
+                    WHERE Status = 1
+                    ORDER BY Name
+                """)
 
-            for row in cursor.fetchall():
-                products.append(Product(*row))
+                for row in cursor.fetchall():
+                    result.append(Product(*row))
 
-        return products
+        except Exception as ex:
+            print("error fetching products...", ex)
 
+        return result
+
+    # SERIALIZATION
     # -------------------------
-    # DETAILS (IMPORTANT)
-    # -------------------------
-    def get_ingredients(self, conn):
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            SELECT i.id, i.name, i.extra_price, ip.default_ingredients
-            FROM ingredients i
-            INNER JOIN Product_ingredients ip 
-                ON i.id = ip.ingredient_id
-            WHERE ip.product_id = ?
-            AND ip.status = 1
-        """, (self._id,))
-
-        ingredients = []
-        for row in cursor.fetchall():
-            ingredients.append({
-                "id": row[0],
-                "name": row[1],
-                "extra_price": float(row[2]),
-                "is_default": bool(row[3])
-            })
-
-        return ingredients
-
     def to_dict(self):
         return {
             "id": self._id,
@@ -156,47 +164,27 @@ class Product:
             "created_at": self._created_at.isoformat() if self._created_at else None
         }
 
-    # FULL DATA (like GET by id)
-    def details(self, conn):
-        from .category import Category
+    def to_json(self):
+        return json.dumps(self.to_dict())
 
-        data = self.to_dict()
-
-        category = Category(self._category_id)
-
-        data["category"] = json.loads(category.to_json())
-        data["ingredients"] = self.get_ingredients(conn)
-
-        return data
-
-    # GET ALL DETAILS 
-    @staticmethod
-    def get_all_details():
-        result = []
-
-        with SQLServerConnection.get_connection() as conn:
-            products = Product.get_all()
-
-            for p in products:
-                result.append(p.details(conn))
-
-        return result
-
-    # -------------------------
-    # INSERT
+    # ADD
     # -------------------------
     def add(self):
-        with SQLServerConnection.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO Products (Category_Id, Name, Description, Image, Price, Status)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                self._category_id,
-                self._name,
-                self._description,
-                self._image,
-                self._price,
-                self._status
-            ))
-            conn.commit()
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO Products (Category_Id, Name, Description, Image, Price, Status)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    self._category_id,
+                    self._name,
+                    self._description,
+                    self._image,
+                    self._price,
+                    self._status
+                ))
+                conn.commit()
+
+        except Exception as ex:
+            raise ex
