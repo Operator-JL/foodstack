@@ -1,7 +1,7 @@
 from flask import jsonify, Blueprint, request
-
 from backend.Models.product import Product, RecordNotFoundException
 from backend.Infrastructure.SQLServerConnection import SQLServerConnection
+from ..Security.Auth import require_auth
 
 product_bp = Blueprint('product_bp', __name__)
 
