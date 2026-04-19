@@ -72,6 +72,8 @@ class Product:
     # -------------------------
     # DB METHODS
     # -------------------------
+    # GET BY ID 
+    # -------------------------
     def load_by_id(self, product_id):
         with SQLServerConnection.get_connection() as conn:
             cursor = conn.cursor()
@@ -97,6 +99,8 @@ class Product:
                 self._created_at
             ) = row
 
+    # GETALL
+    # -------------------------
     @staticmethod
     def get_all():
         products = []
@@ -165,9 +169,9 @@ class Product:
 
         return data
 
-    # GET ALL 
+    # GET ALL DETAILS 
     @staticmethod
-    def get_all():
+    def get_all_details():
         result = []
 
         with SQLServerConnection.get_connection() as conn:

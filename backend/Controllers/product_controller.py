@@ -10,11 +10,11 @@ product_bp = Blueprint('product_bp', __name__)
 # GET ALL 
 # -------------------------
 @product_bp.route('/products', methods=['GET'])
-def get_products():
+def get_all():
     try:
         return jsonify({
             "status": 0,
-            "data": Product.get_all()
+            "data": Product.get_all_details()
         })
     except Exception as e:
         return jsonify({
