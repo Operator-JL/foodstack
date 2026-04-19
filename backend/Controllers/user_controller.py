@@ -22,13 +22,17 @@ def get_user():
 
 #GET by id
 @user_bp.route('/user/<int:user_id>', methods=['GET'])
-def get_user_by_id(user_id):
+def get_user_with_orders(user_id):
     try:
-        u = User(user_id)
-        return jsonify({
-            "status": 0,
-            "data": json.loads(u.to_json())
-        })
+        with SQLServerConnection.get_connection() as conn:
+            u = User()
+            u._id = user_id
+
+            return jsonify({
+                "status": 0,
+                "data": u.details(conn)
+            })
+
     except Exception as e:
         return jsonify({
             "status": 1,

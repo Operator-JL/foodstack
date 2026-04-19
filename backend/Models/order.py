@@ -96,6 +96,31 @@ class Order:
             raise e
 
     @staticmethod
+    def get_by_user_id(user_id, conn):
+        list = []
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT Id, User_Id, Total, Datetime, Status, Created_At
+                FROM Orders
+                WHERE User_Id = ?
+                ORDER BY Id DESC
+            """, user_id)
+
+            for row in cursor.fetchall():
+                o = Order(*row)
+
+                # 🔥 reuse your existing nested logic
+                data = o.details(conn)
+
+                list.append(data)
+
+        except Exception as ex:
+            raise ex
+
+        return list
+
+    @staticmethod
     def get_by_order_product_id(order_product_id, conn):
         list = []
         try:

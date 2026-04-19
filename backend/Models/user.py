@@ -2,6 +2,7 @@ import bcrypt
 import json
 
 from ..Infrastructure.SQLServerConnection import *
+from .order import Order
 
 # record not found exception
 class RecordNotFoundException(Exception):
@@ -113,6 +114,26 @@ class User:
         self._created_at = value
 
     # ---------------- DB METHODS ----------------
+    
+    def get_orders(self, conn):
+        try:
+            return Order.get_by_user_id(self._id, conn)
+        except Exception as ex:
+            raise ex
+
+    def details(self, conn):
+        self.load_by_id(self._id)
+
+        orders = self.get_orders(conn)
+
+        return {
+            "id": self._id,
+            "name": self._name,
+            "lastname": self._lastname,
+            "email": self._email,
+            "orders": orders   # 🔥 nested here
+        }
+
 
     def load_by_id(self, user_id):
         try:
