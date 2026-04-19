@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const data = window.FOODSTACK_DATA;
   const api = window.FOODSTACK_API;
+  const runtime = window.FOODSTACK_RUNTIME || {};
 
   if (!data) {
     return;
@@ -259,6 +260,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         'Order was created successfully. Product line linking awaits backend order id response.'
       );
     } catch (error) {
+      if (runtime.DEV_FALLBACK_MODE) {
+        const demoOrdersRaw = window.localStorage.getItem('foodstack-demo-orders');
+        let demoOrders = [];
+
+        try {
+          demoOrders = demoOrdersRaw ? JSON.parse(demoOrdersRaw) : [];
+        } catch (parseError) {
+          demoOrders = [];
+        }
+
+        demoOrders.push({
+          id: `DEMO-${Date.now()}`,
+          userId: userId,
+          total: Number(lastSummary.total.toFixed(2)),
+          items: lastItems.map((item) => ({
+            id: item.id,
+            name: item.name,
+            qty: item.qty,
+            unitPrice: item.price
+          })),
+          createdAt: new Date().toISOString(),
+          source: 'demo-fallback'
+        });
+
+        window.localStorage.setItem(
+          'foodstack-demo-orders',
+          JSON.stringify(demoOrders)
+        );
+
+        data.clearCart();
+        render();
+        showInlineMessage(
+          'API unavailable. Order was saved locally in demo mode.'
+        );
+        return;
+      }
+
       showInlineMessage(
         error instanceof Error ? error.message : 'Could not submit your order.'
       );
@@ -278,9 +316,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     showInlineMessage('Loading cart data...');
-    await data.loadCatalog();
+    const result = await data.loadCatalog();
     render();
-    showInlineMessage('');
+    showInlineMessage(result && result.source === 'demo' ? result.warning : '');
   } catch (error) {
     if (list) {
       list.innerHTML = '';

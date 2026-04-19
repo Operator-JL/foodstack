@@ -1,11 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
   const api = window.FOODSTACK_ADMIN_API;
+  const runtime = window.FOODSTACK_RUNTIME || {};
 
-  if (!api) {
-    return;
-  }
+  const sessionUser = api && typeof api.readSession === 'function' ? api.readSession() : null;
 
-  if (api.readSession()) {
+  if (sessionUser) {
     window.location.href = 'staff-home.html';
     return;
   }
@@ -16,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const submitButton = document.getElementById('admin-login-btn');
   const messageNode = document.getElementById('admin-auth-msg');
   const demoNode = document.getElementById('admin-demo-creds');
+  const demoAccessButton = document.getElementById('admin-demo-access-btn');
 
   if (!form || !emailInput || !passwordInput || !submitButton || !messageNode) {
     return;
@@ -28,6 +28,30 @@ document.addEventListener('DOMContentLoaded', () => {
   function showMessage(text, isSuccess) {
     messageNode.textContent = text || '';
     messageNode.classList.toggle('is-success', Boolean(isSuccess));
+  }
+
+  function startDemoStaffSession() {
+    if (typeof runtime.startDemoStaffSession === 'function') {
+      return runtime.startDemoStaffSession();
+    }
+
+    const payload = {
+      id: 'demo-staff',
+      name: 'FoodStack Demo Staff',
+      role: 'admin',
+      email: 'demo.staff@foodstack.local'
+    };
+
+    window.localStorage.setItem(
+      'foodstack-admin-session',
+      JSON.stringify({
+        user: payload,
+        signedAt: new Date().toISOString(),
+        isDemo: true
+      })
+    );
+
+    return payload;
   }
 
   form.addEventListener('submit', async (event) => {
@@ -45,6 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
     showMessage('Signing in...', true);
 
     try {
+      if (!api || typeof api.authenticateStaff !== 'function') {
+        throw new Error('Staff login API is not available.');
+      }
+
       const result = await api.authenticateStaff({
         email: email,
         password: password
@@ -61,12 +89,24 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'staff-home.html';
       }, 300);
     } catch (error) {
-      showMessage(
-        error instanceof Error ? error.message : 'Unable to sign in.',
-        false
-      );
+      const details = error instanceof Error ? error.message : 'Unable to sign in.';
+      const hint =
+        runtime.ALLOW_DEMO_AUTH || runtime.DEV_FALLBACK_MODE
+          ? ' You can enter Demo Staff Mode.'
+          : '';
+      showMessage(`${details}${hint}`, false);
     } finally {
       submitButton.disabled = false;
     }
   });
+
+  if (demoAccessButton) {
+    demoAccessButton.addEventListener('click', () => {
+      startDemoStaffSession();
+      showMessage('Demo staff session started. Redirecting...', true);
+      window.setTimeout(() => {
+        window.location.href = 'staff-home.html';
+      }, 250);
+    });
+  }
 });

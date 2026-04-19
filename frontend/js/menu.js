@@ -208,7 +208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderEmptyGrid('Fetching products and categories from API.');
     }
 
-    await data.loadCatalog();
+    const result = await data.loadCatalog();
 
     availableCategories = ['All'].concat(data.getCategories());
 
@@ -221,7 +221,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderTabs();
     renderGrid();
 
-    if (isStaffContext) {
+    if (result && result.source === 'demo') {
+      showMessage(result.warning || 'Using local demo catalog.');
+    } else if (isStaffContext) {
       showMessage('Staff mode: cart and purchase actions are disabled.');
     } else {
       showMessage('');

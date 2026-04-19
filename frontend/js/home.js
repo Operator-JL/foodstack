@@ -118,8 +118,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     showInfo('Loading featured products...');
-    await data.loadCatalog();
+    const result = await data.loadCatalog();
     renderProducts();
+
+    if (result && result.source === 'demo') {
+      showInfo(result.warning || 'Using local demo catalog.');
+    }
   } catch (error) {
     if (grid) {
       grid.innerHTML = '';

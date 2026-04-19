@@ -1,6 +1,17 @@
 (function () {
   const BASE_URL =
     'https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api';
+  const RUNTIME_OVERRIDE = window.FOODSTACK_RUNTIME_OVERRIDES || {};
+  const RUNTIME_CONFIG = {
+    DEV_FALLBACK_MODE:
+      Object.hasOwn(RUNTIME_OVERRIDE, 'DEV_FALLBACK_MODE')
+        ? Boolean(RUNTIME_OVERRIDE.DEV_FALLBACK_MODE)
+        : true,
+    ALLOW_DEMO_AUTH:
+      Object.hasOwn(RUNTIME_OVERRIDE, 'ALLOW_DEMO_AUTH')
+        ? Boolean(RUNTIME_OVERRIDE.ALLOW_DEMO_AUTH)
+        : true
+  };
 
   function joinUrl(base, path) {
     const safeBase = String(base || '').replace(/\/+$/, '');
@@ -49,12 +60,22 @@
       headers['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(url, {
-      method: method,
-      headers: headers,
-      credentials: 'include',
-      body: config.body != null ? JSON.stringify(config.body) : undefined
-    });
+    let response;
+
+    try {
+      response = await fetch(url, {
+        method: method,
+        headers: headers,
+        credentials: 'include',
+        body: config.body != null ? JSON.stringify(config.body) : undefined
+      });
+    } catch (error) {
+      const networkError = new Error(
+        'API is unreachable (network/CORS/offline).'
+      );
+      networkError.code = 'NETWORK_ERROR';
+      throw networkError;
+    }
 
     const payload = await parseJsonSafe(response);
 
@@ -88,6 +109,47 @@
     }
 
     throw lastError || new Error('No API route was available for this request.');
+  }
+
+  function runtimeEnabled(flagName) {
+    return Boolean(RUNTIME_CONFIG[flagName]);
+  }
+
+  function startDemoCustomerSession(overrides) {
+    const payload = {
+      id: 'demo-customer',
+      name: 'Demo',
+      lastname: 'User',
+      email: 'demo.customer@foodstack.local',
+      role: 'customer',
+      ...(overrides && typeof overrides === 'object' ? overrides : {})
+    };
+
+    window.localStorage.setItem('foodstack-user', JSON.stringify(payload));
+    window.localStorage.setItem('user', JSON.stringify(payload));
+    window.localStorage.removeItem('foodstack-admin-session');
+    return payload;
+  }
+
+  function startDemoStaffSession(overrides) {
+    const user = {
+      id: 'demo-staff',
+      name: 'FoodStack Demo Staff',
+      email: 'demo.staff@foodstack.local',
+      role: 'admin',
+      ...(overrides && typeof overrides === 'object' ? overrides : {})
+    };
+
+    window.localStorage.setItem(
+      'foodstack-admin-session',
+      JSON.stringify({
+        user: user,
+        signedAt: new Date().toISOString(),
+        isDemo: true
+      })
+    );
+
+    return user;
   }
 
   const api = {
@@ -167,4 +229,10 @@
   };
 
   window.FOODSTACK_API = api;
+  window.FOODSTACK_RUNTIME = {
+    ...RUNTIME_CONFIG,
+    isEnabled: runtimeEnabled,
+    startDemoCustomerSession: startDemoCustomerSession,
+    startDemoStaffSession: startDemoStaffSession
+  };
 })();

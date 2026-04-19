@@ -414,12 +414,129 @@
     }
   }
 
+  function canUseDevFallback() {
+    const runtime = window.FOODSTACK_RUNTIME;
+    return runtime ? Boolean(runtime.DEV_FALLBACK_MODE) : true;
+  }
+
+  function buildDemoFallbackData() {
+    const nowIso = new Date().toISOString();
+    const demoCatalog = window.FOODSTACK_DEMO_CATALOG || {};
+    const demoCategoryNames = Array.isArray(demoCatalog.categories)
+      ? demoCatalog.categories
+      : [];
+    const demoProductsRaw = Array.isArray(demoCatalog.products)
+      ? demoCatalog.products
+      : [];
+
+    const categories = demoCategoryNames.map((name, index) => ({
+      id: String(index + 1),
+      name: normalizeText(name),
+      status: true
+    }));
+    const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
+    const products = demoProductsRaw
+      .map((item) => normalizeProduct(item, categoryMap))
+      .filter((item) => item.status)
+      .map((item, index) => ({
+        ...item,
+        stock: Number.isFinite(Number(item.stock)) ? Number(item.stock) : 40 - (index % 5) * 4
+      }));
+
+    const users = [
+      {
+        id: 'demo-customer',
+        name: 'Demo',
+        lastname: 'User',
+        email: 'demo.customer@foodstack.local',
+        phoneNumber: '0000000000',
+        role: 'customer',
+        status: true,
+        createdAt: nowIso
+      }
+    ];
+
+    const demoOrders = [
+      {
+        id: '5001',
+        displayId: 'ORD-5001',
+        userId: 'demo-customer',
+        total: 25.47,
+        status: 'completed',
+        createdAt: nowIso
+      },
+      {
+        id: '5002',
+        displayId: 'ORD-5002',
+        userId: 'demo-customer',
+        total: 13.98,
+        status: 'preparing',
+        createdAt: nowIso
+      },
+      {
+        id: '5003',
+        displayId: 'ORD-5003',
+        userId: 'demo-customer',
+        total: 32.5,
+        status: 'pending',
+        createdAt: nowIso
+      }
+    ];
+
+    const topProducts = products.slice(0, 4);
+    const orderProducts = topProducts.map((product, index) => ({
+      id: `OP-DEMO-${index + 1}`,
+      orderId: demoOrders[index % demoOrders.length].id,
+      productId: product.id,
+      quantity: index + 1,
+      price: product.price,
+      status: true,
+      createdAt: nowIso
+    }));
+
+    const ingredients = [
+      {
+        id: 'demo-ing-1',
+        name: 'Cheddar Cheese',
+        extraPrice: 1.5,
+        status: true
+      },
+      {
+        id: 'demo-ing-2',
+        name: 'Bacon',
+        extraPrice: 2.0,
+        status: true
+      }
+    ];
+
+    const productIngredients = products.slice(0, 2).map((product, index) => ({
+      id: `PI-DEMO-${index + 1}`,
+      productId: product.id,
+      ingredientId: ingredients[index % ingredients.length].id,
+      maxIngredients: 3,
+      defaultIngredients: index === 0,
+      status: true
+    }));
+
+    return {
+      categories: categories,
+      products: products,
+      users: users,
+      orders: demoOrders,
+      orderProducts: orderProducts,
+      ingredients: ingredients,
+      productIngredients: productIngredients
+    };
+  }
+
   async function loadBaseData() {
     const api = window.FOODSTACK_API;
+    const devFallback = canUseDevFallback();
 
-    if (!api) {
-      throw new Error('API client is not available.');
-    }
+    const fallbackResult = {
+      items: [],
+      warning: 'API client is not available.'
+    };
 
     const [
       categoriesResult,
@@ -429,21 +546,31 @@
       orderProductsResult,
       ingredientsResult,
       productIngredientsResult
-    ] = await Promise.all([
-      fetchListWithFallback(() => api.getCategories(), 'Categories endpoint failed'),
-      fetchListWithFallback(() => api.getProducts(), 'Products endpoint failed'),
-      fetchListWithFallback(() => api.getUsers(), 'Users endpoint failed'),
-      fetchListWithFallback(() => api.getOrders(), 'Orders endpoint failed'),
-      fetchListWithFallback(
-        () => api.getOrderProducts(),
-        'Order-products endpoint failed'
-      ),
-      fetchListWithFallback(() => api.getIngredients(), 'Ingredients endpoint failed'),
-      fetchListWithFallback(
-        () => api.getProductIngredients(),
-        'Product-ingredients endpoint failed'
-      )
-    ]);
+    ] = api
+      ? await Promise.all([
+          fetchListWithFallback(() => api.getCategories(), 'Categories endpoint failed'),
+          fetchListWithFallback(() => api.getProducts(), 'Products endpoint failed'),
+          fetchListWithFallback(() => api.getUsers(), 'Users endpoint failed'),
+          fetchListWithFallback(() => api.getOrders(), 'Orders endpoint failed'),
+          fetchListWithFallback(
+            () => api.getOrderProducts(),
+            'Order-products endpoint failed'
+          ),
+          fetchListWithFallback(() => api.getIngredients(), 'Ingredients endpoint failed'),
+          fetchListWithFallback(
+            () => api.getProductIngredients(),
+            'Product-ingredients endpoint failed'
+          )
+        ])
+      : [
+          fallbackResult,
+          fallbackResult,
+          fallbackResult,
+          fallbackResult,
+          fallbackResult,
+          fallbackResult,
+          fallbackResult
+        ];
 
     const warnings = [
       categoriesResult.warning,
@@ -454,36 +581,74 @@
       ingredientsResult.warning,
       productIngredientsResult.warning
     ].filter(Boolean);
+    const dedupedWarnings = Array.from(new Set(warnings));
 
-    const categories = categoriesResult.items
+    let categories = categoriesResult.items
       .map(normalizeCategory)
       .filter((item) => item.status);
 
     const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
 
-    const products = productsResult.items
+    let products = productsResult.items
       .map((item) => normalizeProduct(item, categoryMap))
       .filter((item) => item.status);
 
-    const users = usersResult.items
+    let users = usersResult.items
       .map(normalizeUser)
       .filter((item) => item.status);
 
-    const orders = ordersResult.items
+    let orders = ordersResult.items
       .map(normalizeOrder)
       .filter((item) => item.id);
 
-    const orderProducts = orderProductsResult.items
+    let orderProducts = orderProductsResult.items
       .map(normalizeOrderProduct)
       .filter((item) => item.id);
 
-    const ingredients = ingredientsResult.items
+    let ingredients = ingredientsResult.items
       .map(normalizeIngredient)
       .filter((item) => item.status);
 
-    const productIngredients = productIngredientsResult.items
+    let productIngredients = productIngredientsResult.items
       .map(normalizeProductIngredient)
       .filter((item) => item.status);
+
+    if (
+      devFallback &&
+      (!products.length || !categories.length || !users.length || !orders.length)
+    ) {
+      const demo = buildDemoFallbackData();
+
+      if (!categories.length) {
+        categories = demo.categories;
+      }
+
+      if (!products.length) {
+        products = demo.products;
+      }
+
+      if (!users.length) {
+        users = demo.users;
+      }
+
+      if (!orders.length) {
+        orders = demo.orders;
+      }
+
+      if (!orderProducts.length) {
+        orderProducts = demo.orderProducts;
+      }
+
+      if (!ingredients.length) {
+        ingredients = demo.ingredients;
+      }
+
+      if (!productIngredients.length) {
+        productIngredients = demo.productIngredients;
+      }
+
+      warnings.push('Using local demo fallback dataset in admin views.');
+    }
 
     return {
       categories: categories,
@@ -493,7 +658,7 @@
       orderProducts: orderProducts,
       ingredients: ingredients,
       productIngredients: productIngredients,
-      warnings: warnings
+      warnings: Array.from(new Set(dedupedWarnings.concat(warnings)))
     };
   }
 

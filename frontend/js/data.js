@@ -6,13 +6,20 @@
     products: [],
     categories: [],
     catalogLoaded: false,
-    lastError: ''
+    lastError: '',
+    lastWarning: '',
+    catalogSource: 'none'
   };
 
   let catalogPromise = null;
 
   function hasApiClient() {
     return Boolean(window.FOODSTACK_API);
+  }
+
+  function canUseFallbackCatalog() {
+    const runtime = window.FOODSTACK_RUNTIME;
+    return runtime ? Boolean(runtime.DEV_FALLBACK_MODE) : true;
   }
 
   function normalizeText(value) {
@@ -211,22 +218,66 @@
     return state.lastError;
   }
 
+  function getCatalogWarning() {
+    return state.lastWarning;
+  }
+
+  function getCatalogSource() {
+    return state.catalogSource;
+  }
+
+  function isUsingFallbackCatalog() {
+    return state.catalogSource === 'demo';
+  }
+
   function isCatalogLoaded() {
     return state.catalogLoaded;
   }
 
-  async function loadCatalog(forceRefresh) {
-    if (!hasApiClient()) {
-      const message = 'API client is not available.';
-      state.catalogLoaded = false;
-      state.lastError = message;
-      throw new Error(message);
+  function getLocalDemoCatalog() {
+    const source = window.FOODSTACK_DEMO_CATALOG || {};
+    const categories = Array.isArray(source.categories) ? source.categories.slice() : [];
+    const products = Array.isArray(source.products) ? source.products.slice() : [];
+
+    if (!categories.length || !products.length) {
+      return {
+        categories: ['Burgers', 'Drinks'],
+        products: [
+          {
+            id: 'demo-burger',
+            name: 'Demo Burger',
+            category: 'Burgers',
+            description: 'Local fallback item for development preview.',
+            image: FALLBACK_PRODUCT_IMAGE,
+            price: 9.99,
+            status: true
+          },
+          {
+            id: 'demo-drink',
+            name: 'Demo Drink',
+            category: 'Drinks',
+            description: 'Local fallback item for development preview.',
+            image: FALLBACK_PRODUCT_IMAGE,
+            price: 2.5,
+            status: true
+          }
+        ]
+      };
     }
 
+    return {
+      categories: categories,
+      products: products
+    };
+  }
+
+  async function loadCatalog(forceRefresh) {
     if (!forceRefresh && state.catalogLoaded) {
       return {
         categories: getCategories(),
-        products: getProducts()
+        products: getProducts(),
+        source: state.catalogSource,
+        warning: state.lastWarning
       };
     }
 
@@ -235,53 +286,110 @@
     }
 
     catalogPromise = (async () => {
-      const api = window.FOODSTACK_API;
-      const [categoriesResponse, productsResponse] = await Promise.all([
-        api.getCategories(),
-        api.getProducts()
-      ]);
+      try {
+        if (!hasApiClient()) {
+          throw new Error('API client is not available.');
+        }
 
-      const categories = Array.isArray(categoriesResponse) ? categoriesResponse : [];
-      const products = Array.isArray(productsResponse) ? productsResponse : [];
+        const api = window.FOODSTACK_API;
+        const [categoriesResponse, productsResponse] = await Promise.all([
+          api.getCategories(),
+          api.getProducts()
+        ]);
 
-      const normalizedCategories = categories
-        .filter((item) => normalizeBoolean(item && item.status))
-        .map((item) => ({
-          id: normalizeText(item && item.id),
-          name: normalizeText(item && item.name)
-        }))
-        .filter((item) => item.id && item.name);
+        const categories = Array.isArray(categoriesResponse) ? categoriesResponse : [];
+        const products = Array.isArray(productsResponse) ? productsResponse : [];
 
-      const categoryMap = new Map(
-        normalizedCategories.map((item) => [String(item.id), item.name])
-      );
+        const normalizedCategories = categories
+          .filter((item) => normalizeBoolean(item && item.status))
+          .map((item) => ({
+            id: normalizeText(item && item.id),
+            name: normalizeText(item && item.name)
+          }))
+          .filter((item) => item.id && item.name);
 
-      const normalizedProducts = products
-        .filter((item) => normalizeBoolean(item && item.status))
-        .map((item) => mapProduct(item, categoryMap))
-        .filter(Boolean);
+        const categoryMap = new Map(
+          normalizedCategories.map((item) => [String(item.id), item.name])
+        );
 
-      const categoryNames = unique(
-        normalizedCategories.map((item) => item.name).concat(
-          normalizedProducts.map((item) => item.category)
-        )
-      ).filter(Boolean);
+        const normalizedProducts = products
+          .filter((item) => normalizeBoolean(item && item.status))
+          .map((item) => mapProduct(item, categoryMap))
+          .filter(Boolean);
 
-      state.categories = categoryNames;
-      state.products = normalizedProducts;
-      state.catalogLoaded = true;
-      state.lastError = '';
+        if (canUseFallbackCatalog() && normalizedProducts.length === 0) {
+          throw new Error('API returned no active products.');
+        }
 
-      pruneInvalidCartItems();
+        const categoryNames = unique(
+          normalizedCategories.map((item) => item.name).concat(
+            normalizedProducts.map((item) => item.category)
+          )
+        ).filter(Boolean);
 
-      return {
-        categories: getCategories(),
-        products: getProducts()
-      };
+        state.categories = categoryNames;
+        state.products = normalizedProducts;
+        state.catalogLoaded = true;
+        state.lastError = '';
+        state.lastWarning = '';
+        state.catalogSource = 'api';
+
+        pruneInvalidCartItems();
+
+        return {
+          categories: getCategories(),
+          products: getProducts(),
+          source: 'api',
+          warning: ''
+        };
+      } catch (error) {
+        if (!canUseFallbackCatalog()) {
+          throw error;
+        }
+
+        const demoCatalog = getLocalDemoCatalog();
+        const fallbackCategories = demoCatalog.categories
+          .map((item, index) => ({
+            id: String(index + 1),
+            name: normalizeText(item)
+          }))
+          .filter((item) => item.name);
+        const categoryMap = new Map(
+          fallbackCategories.map((item) => [item.id, item.name])
+        );
+        const fallbackProducts = demoCatalog.products
+          .filter((item) => normalizeBoolean(item && item.status))
+          .map((item) => mapProduct(item, categoryMap))
+          .filter(Boolean);
+        const categoryNames = unique(
+          fallbackCategories.map((item) => item.name).concat(
+            fallbackProducts.map((item) => item.category)
+          )
+        ).filter(Boolean);
+
+        state.categories = categoryNames;
+        state.products = fallbackProducts;
+        state.catalogLoaded = true;
+        state.lastError = error instanceof Error ? error.message : String(error);
+        state.lastWarning =
+          'API not available. Using local demo catalog for development.';
+        state.catalogSource = 'demo';
+
+        pruneInvalidCartItems();
+
+        return {
+          categories: getCategories(),
+          products: getProducts(),
+          source: 'demo',
+          warning: state.lastWarning
+        };
+      }
     })()
       .catch((error) => {
         state.catalogLoaded = false;
         state.lastError = error instanceof Error ? error.message : String(error);
+        state.lastWarning = '';
+        state.catalogSource = 'none';
         throw error;
       })
       .finally(() => {
@@ -295,6 +403,9 @@
     loadCatalog: loadCatalog,
     isCatalogLoaded: isCatalogLoaded,
     getCatalogError: getCatalogError,
+    getCatalogWarning: getCatalogWarning,
+    getCatalogSource: getCatalogSource,
+    isUsingFallbackCatalog: isUsingFallbackCatalog,
     getCategories: getCategories,
     getProducts: getProducts,
     byCategory: byCategory,

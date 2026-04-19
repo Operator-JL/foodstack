@@ -1,13 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
   const api = window.FOODSTACK_API;
-
-  if (!api) {
-    return;
-  }
+  const runtime = window.FOODSTACK_RUNTIME || {};
 
   const loginForm = document.getElementById('customer-login-form');
   const signupForm = document.getElementById('customer-signup-form');
   const authMessage = document.getElementById('auth-inline-msg');
+  const demoButton = document.getElementById('auth-demo-btn');
 
   function showMessage(text, isSuccess) {
     if (!authMessage) {
@@ -37,6 +35,23 @@ document.addEventListener('DOMContentLoaded', () => {
     window.localStorage.setItem('foodstack-user', JSON.stringify(user));
     window.localStorage.setItem('user', JSON.stringify(user));
     window.localStorage.removeItem('foodstack-admin-session');
+  }
+
+  function startDemoSession() {
+    if (typeof runtime.startDemoCustomerSession === 'function') {
+      return runtime.startDemoCustomerSession();
+    }
+
+    const payload = {
+      id: 'demo-customer',
+      name: 'Demo',
+      lastname: 'User',
+      email: 'demo.customer@foodstack.local',
+      role: 'customer'
+    };
+
+    saveCustomerSession(payload);
+    return payload;
   }
 
   function parseNameParts(fullName) {
@@ -78,6 +93,10 @@ document.addEventListener('DOMContentLoaded', () => {
     showMessage('Validating credentials...', true);
 
     try {
+      if (!api) {
+        throw new Error('Login API is not available in this environment.');
+      }
+
       const response = await api.login({
         email: email,
         password: password
@@ -130,10 +149,12 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'home.html';
       }, 300);
     } catch (error) {
-      showMessage(
-        error instanceof Error ? error.message : 'Unable to sign in.',
-        false
-      );
+      const details = error instanceof Error ? error.message : 'Unable to sign in.';
+      const hint =
+        runtime.ALLOW_DEMO_AUTH || runtime.DEV_FALLBACK_MODE
+          ? ' You can continue in Demo Mode.'
+          : '';
+      showMessage(`${details}${hint}`, false);
     } finally {
       setSubmitting(submitButton, false);
     }
@@ -177,6 +198,10 @@ document.addEventListener('DOMContentLoaded', () => {
     showMessage('Sending registration to API...', true);
 
     try {
+      if (!api) {
+        throw new Error('Signup API is not available in this environment.');
+      }
+
       await api.createUser({
         name: nameParts.name,
         lastname: nameParts.lastname,
@@ -193,10 +218,13 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'login.html';
       }, 550);
     } catch (error) {
-      showMessage(
-        error instanceof Error ? error.message : 'Unable to create account.',
-        false
-      );
+      const details =
+        error instanceof Error ? error.message : 'Unable to create account.';
+      const hint =
+        runtime.ALLOW_DEMO_AUTH || runtime.DEV_FALLBACK_MODE
+          ? ' You can continue in Demo Mode.'
+          : '';
+      showMessage(`${details}${hint}`, false);
     } finally {
       setSubmitting(submitButton, false);
     }
@@ -208,5 +236,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (signupForm) {
     signupForm.addEventListener('submit', handleSignup);
+  }
+
+  if (demoButton) {
+    demoButton.addEventListener('click', () => {
+      startDemoSession();
+      showMessage('Demo session started. Redirecting...', true);
+      window.setTimeout(() => {
+        window.location.href = 'home.html';
+      }, 250);
+    });
   }
 });
