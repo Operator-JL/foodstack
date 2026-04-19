@@ -94,6 +94,91 @@ class Order:
         except Exception as e:
             raise e
 
+    @staticmethod
+    def get_by_order_product_id(order_product_id, conn):
+        list = []
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT Id, Order_Product_Id, Ingredient_Id, Quantity, Status, Created_At
+                FROM Order_Product_Ingredients
+                WHERE Order_Product_Id = ?
+            """, order_product_id)
+
+            for row in cursor.fetchall():
+                (
+                    _id,
+                    _order_product_id,
+                    _ingredient_id,
+                    _quantity,
+                    _status,
+                    _created_at
+                ) = row
+
+                list.append({
+                    "id": _id,
+                    "order_product_id": _order_product_id,
+                    "ingredient_id": _ingredient_id,
+                    "quantity": _quantity,
+                    "status": _status,
+                    "created_at": _created_at.isoformat() if _created_at else None
+                })
+
+        except Exception as ex:
+            raise ex
+
+        return list
+
+    @staticmethod
+    def get_by_order_id(order_id, conn):
+        list = []
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT Id, Order_Id, Product_Id, Quantity, Price, Status, Created_At
+                FROM Order_Products
+                WHERE Order_Id = ?
+            """, order_id)
+
+            for row in cursor.fetchall():
+                op = OrderProduct(*row)
+
+                # 🔥 NEW: get ingredients per order_product
+                ingredients = OrderProductIngredient.get_by_order_product_id(op.id, conn)
+
+                list.append({
+                    "id": op.id,
+                    "order_id": op.order_id,
+                    "product_id": op.product_id,
+                    "quantity": op.quantity,
+                    "price": float(op.price),
+                    "status": op.status,
+                    "created_at": op.created_at.isoformat() if op.created_at else None,
+                    "ingredients": ingredients   # 👈 nested here
+                })
+
+        except Exception as ex:
+            raise ex
+
+        return list
+        
+    def details(self, conn):
+        self.load_by_id(self._id)
+
+        products = OrderProduct.get_by_order_id(self._id, conn)
+
+        return {
+            "id": self._id,
+            "user_id": self._user_id,
+            "total": float(self._total),
+            "datetime": self._datetime.isoformat() if self._datetime else None,
+            "status": self._status,
+            "created_at": self._created_at.isoformat() if self._created_at else None,
+            "order_products": products
+        }
+
+
+
     # GET ALL
     @staticmethod
     def get_all():

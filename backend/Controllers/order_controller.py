@@ -20,15 +20,27 @@ def get_orders():
             "errorMessage": str(e)
         })
 
-#GET by id
+# -------------------------
+# GET BY ID
+# -------------------------
 @order_bp.route('/order/<int:order_id>', methods=['GET'])
 def get_order_by_id(order_id):
     try:
-        o = Order(order_id)
+        with SQLServerConnection.get_connection() as conn:
+            o = Order()
+            o._id = order_id
+
+            return jsonify({
+                "status": 0,
+                "data": o.details(conn)
+            })
+
+    except RecordNotFoundException as e:
         return jsonify({
-            "status": 0,
-            "data": json.loads(o.to_json())
+            "status": 1,
+            "errorMessage": str(e)
         })
+
     except Exception as e:
         return jsonify({
             "status": 1,
