@@ -6,9 +6,7 @@ from .product import Product
 class RecordNotFoundException(Exception):
     pass
 
-# -------------------------
-# ATTRIBUTES
-# -------------------------
+
 class OrderProduct:
     def __init__(self, *args):
         self._id = 0
@@ -93,9 +91,6 @@ class OrderProduct:
         self._created_at = value
 
     # -------------------------
-    # METHODS
-    # -------------------------
-
     # GET BY ID
     # -------------------------
     def load_by_id(self, id):
@@ -125,7 +120,8 @@ class OrderProduct:
         except Exception as e:
             raise e
 
-    # GET BY ORDER ID (WITH INGREDIENTS)
+    # -------------------------
+    # GET BY ORDER ID (FULL DATA)
     # -------------------------
     @staticmethod
     def get_by_order_id(order_id, conn):
@@ -141,7 +137,10 @@ class OrderProduct:
             for row in cursor.fetchall():
                 op = OrderProduct(*row)
 
-                # 🔥 Get ingredients for each order product
+                # 🔥 Product details
+                product = Product(op.product_id)
+
+                # 🔥 Ingredients (with ingredient details)
                 ingredients = OrderProductIngredient.get_by_order_product_id(op.id, conn)
 
                 result.append({
@@ -152,6 +151,11 @@ class OrderProduct:
                     "price": float(op.price),
                     "status": op.status,
                     "created_at": op.created_at.isoformat() if op.created_at else None,
+
+                    # 🔥 Nested product
+                    "product": product.to_dict(),
+
+                    # 🔥 Nested ingredients
                     "ingredients": ingredients
                 })
 
