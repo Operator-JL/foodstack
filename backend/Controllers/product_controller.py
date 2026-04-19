@@ -34,7 +34,7 @@ def get_product_by_id(product_id):
 
             return jsonify({
                 "status": 0,
-                "data": p.to_dict_with_details(conn)
+                "data": p.details(conn)
             })
 
     except RecordNotFoundException as e:
