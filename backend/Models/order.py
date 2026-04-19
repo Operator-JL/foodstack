@@ -1,5 +1,6 @@
 import json
 from ..Infrastructure.SQLServerConnection import *
+from .order_product import OrderProduct
 
 class RecordNotFoundException(Exception):
     pass
@@ -161,7 +162,7 @@ class Order:
             raise ex
 
         return list
-        
+
     def details(self, conn):
         self.load_by_id(self._id)
 

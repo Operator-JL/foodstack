@@ -1,6 +1,7 @@
 from flask import jsonify, Blueprint, request
-from backend.Models.order import Order
+from backend.Models.order import Order, RecordNotFoundException
 from backend.Infrastructure.SQLServerConnection import SQLServerConnection
+
 from ..Security.Auth import require_auth
 
 order_bp = Blueprint('order_bp', __name__)

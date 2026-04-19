@@ -1,5 +1,6 @@
 import json
 from ..Infrastructure.SQLServerConnection import *
+from .order_product_ingredient import OrderProductIngredient
 
 class RecordNotFoundException(Exception):
     pass
