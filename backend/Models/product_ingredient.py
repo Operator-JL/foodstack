@@ -4,6 +4,7 @@ from ..Infrastructure.SQLServerConnection import *
 class RecordNotFoundException(Exception):
     pass
 
+
 class ProductIngredient:
     def __init__(self, *args):
         self._id = 0
@@ -28,9 +29,14 @@ class ProductIngredient:
                 self._created_at
             ) = args
 
+    # -------------------------
+    # PROPERTIES
+    # -------------------------
+
     @property
     def id(self):
         return self._id
+
     @id.setter
     def id(self, value):
         self._id = value
@@ -38,6 +44,7 @@ class ProductIngredient:
     @property
     def product_id(self):
         return self._product_id
+
     @product_id.setter
     def product_id(self, value):
         self._product_id = value
@@ -45,6 +52,7 @@ class ProductIngredient:
     @property
     def ingredient_id(self):
         return self._ingredient_id
+
     @ingredient_id.setter
     def ingredient_id(self, value):
         self._ingredient_id = value
@@ -52,6 +60,7 @@ class ProductIngredient:
     @property
     def max_ingredients(self):
         return self._max_ingredients
+
     @max_ingredients.setter
     def max_ingredients(self, value):
         self._max_ingredients = value
@@ -59,6 +68,7 @@ class ProductIngredient:
     @property
     def default_ingredients(self):
         return self._default_ingredients
+
     @default_ingredients.setter
     def default_ingredients(self, value):
         self._default_ingredients = value
@@ -66,6 +76,7 @@ class ProductIngredient:
     @property
     def status(self):
         return self._status
+
     @status.setter
     def status(self, value):
         self._status = value
@@ -73,41 +84,74 @@ class ProductIngredient:
     @property
     def created_at(self):
         return self._created_at
+
     @created_at.setter
     def created_at(self, value):
         self._created_at = value
 
-    # GET BY ID
-    def load_by_id(self, id):
-        try:
-            with SQLServerConnection.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT Id, Product_Id, Ingredient_Id, Max_Ingredients, Default_Ingredients, Status, Created_At
-                    FROM Product_Ingredients
-                    WHERE Id = ?
-                """, id)
+    # -------------------------
+    # METHODS
+    # -------------------------
 
-                row = cursor.fetchone()
-                if row:
-                    (
-                        self._id,
-                        self._product_id,
-                        self._ingredient_id,
-                        self._max_ingredients,
-                        self._default_ingredients,
-                        self._status,
-                        self._created_at
-                    ) = row
-                else:
-                    raise RecordNotFoundException(f"Record with id {id} was not found.")
+    # LOAD BY ID
+    # -------------------------
+    def load_by_id(self, id, conn=None):
+        try:
+            if conn:
+                cursor = conn.cursor()
+            else:
+                conn = SQLServerConnection.get_connection()
+                cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT Id, Product_Id, Ingredient_Id, Max_Ingredients, Default_Ingredients, Status, Created_At
+                FROM Product_Ingredients
+                WHERE Id = ?
+            """, id)
+
+            row = cursor.fetchone()
+            if row:
+                (
+                    self._id,
+                    self._product_id,
+                    self._ingredient_id,
+                    self._max_ingredients,
+                    self._default_ingredients,
+                    self._status,
+                    self._created_at
+                ) = row
+            else:
+                raise RecordNotFoundException(f"Record with id {id} was not found.")
+
         except Exception as e:
             raise e
 
+    # GET BY ID
+    # -------------------------
+    @staticmethod
+    def get_by_id(id, conn=None):
+        try:
+            pi = ProductIngredient()
+            pi.load_by_id(id, conn)
+
+            return {
+                "id": pi.id,
+                "product_id": pi.product_id,
+                "ingredient_id": pi.ingredient_id,
+                "max_ingredients": pi.max_ingredients,
+                "default_ingredients": pi.default_ingredients,
+                "status": pi.status,
+                "created_at": pi.created_at.isoformat() if pi.created_at else None
+            }
+
+        except Exception as ex:
+            raise ex
+
     # GET ALL
+    # -------------------------
     @staticmethod
     def get_all():
-        list = []
+        results = []
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
@@ -117,11 +161,68 @@ class ProductIngredient:
                     ORDER BY Id
                 """)
                 for row in cursor.fetchall():
-                    list.append(ProductIngredient(*row))
+                    results.append(ProductIngredient(*row))
         except Exception as ex:
             print("error fetching product_ingredients...", ex)
-        return list
 
+        return results
+
+    # ADD
+    # -------------------------
+    def add(self):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO Product_Ingredients 
+                    (Product_Id, Ingredient_Id, Max_Ingredients, Default_Ingredients, Status)
+                    OUTPUT INSERTED.Id
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    self._product_id,
+                    self._ingredient_id,
+                    self._max_ingredients,
+                    self._default_ingredients,
+                    self._status
+                ))
+
+                self._id = cursor.fetchone()[0]
+                conn.commit()
+
+                return self._id
+
+        except Exception as ex:
+            raise ex
+
+    # UPDATE
+    # -------------------------
+    def update(self):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE Product_Ingredients
+                    SET Product_Id = ?, Ingredient_Id = ?, Max_Ingredients = ?, Default_Ingredients = ?, Status = ?
+                    WHERE Id = ?
+                """, (
+                    self._product_id,
+                    self._ingredient_id,
+                    self._max_ingredients,
+                    self._default_ingredients,
+                    self._status,
+                    self._id
+                ))
+
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundException(f"Record with id {self._id} was not found.")
+
+                conn.commit()
+
+        except Exception as ex:
+            raise ex
+
+    # TO JSON
+    # -------------------------
     def to_json(self):
         return json.dumps({
             "id": self._id,
@@ -132,23 +233,3 @@ class ProductIngredient:
             "status": self._status,
             "created_at": self._created_at.isoformat() if self._created_at else None
         })
-
-    # INSERT
-    def add(self):
-        try:
-            with SQLServerConnection.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO Product_Ingredients 
-                    (Product_Id, Ingredient_Id, Max_Ingredients, Default_Ingredients, Status)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    self._product_id,
-                    self._ingredient_id,
-                    self._max_ingredients,
-                    self._default_ingredients,
-                    self._status
-                ))
-                conn.commit()
-        except Exception as ex:
-            raise ex

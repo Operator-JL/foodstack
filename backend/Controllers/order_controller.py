@@ -107,9 +107,8 @@ def update_order(order_id):
     try:
         data = request.get_json()
 
-        o = Order(order_id)  # loads existing order
+        o = Order(order_id) 
 
-        # update only if provided
         if "user_id" in data:
             o.user_id = data.get("user_id")
 
