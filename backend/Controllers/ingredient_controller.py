@@ -6,13 +6,14 @@ from ..Security.Auth import require_auth
 
 ingredient_bp = Blueprint('ingredient_bp', __name__)
 
-#GET
+# GET ALL
+# -------------------------
 @ingredient_bp.route('/ingredients', methods=['GET'])
 def get_ingredients():
     try:
         return jsonify({
             "status": 0,
-            "data": [json.loads(i.to_json()) for i in Ingredient.get_all()]
+            "data": [i.to_dict() for i in Ingredient.get_all()]
         })
     except Exception as e:
         return jsonify({
@@ -20,14 +21,15 @@ def get_ingredients():
             "errorMessage": str(e)
         })
 
-#GET by id
+# GET BY ID
+# -------------------------
 @ingredient_bp.route('/ingredient/<int:ingredient_id>', methods=['GET'])
 def get_ingredient_by_id(ingredient_id):
     try:
         i = Ingredient(ingredient_id)
         return jsonify({
             "status": 0,
-            "data": json.loads(i.to_json())
+            "data": i.to_dict()
         })
     except Exception as e:
         return jsonify({
@@ -35,7 +37,8 @@ def get_ingredient_by_id(ingredient_id):
             "errorMessage": str(e)
         })
 
-#POST
+# POST
+# --------------------------
 @ingredient_bp.route('/ingredient', methods=['POST'])
 def create_ingredient():
     try:
@@ -46,11 +49,38 @@ def create_ingredient():
         i.extra_price = data.get("extra_price")
         i.status = data.get("status", 1)
 
-        i.add()
+        new_id = i.add()
 
         return jsonify({
             "status": 0,
-            "message": "Ingredient created successfully"
+            "message": "Ingredient created successfully",
+            "data": {
+                "id": new_id
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            "status": 1,
+            "errorMessage": str(e)
+        })
+
+# PUT
+# --------------------------
+@ingredient_bp.route('/ingredient/<int:ingredient_id>', methods=['PUT'])
+def update_ingredient(ingredient_id):
+    try:
+        data = request.get_json()
+        i = Ingredient(ingredient_id)
+
+        i.name = data.get("name", i.name)
+        i.extra_price = data.get("extra_price", i.extra_price)
+        i.status = data.get("status", i.status)
+
+        i.update()
+
+        return jsonify({
+            "status": 0,
+            "message": "Ingredient updated successfully"
         })
     except Exception as e:
         return jsonify({

@@ -43,6 +43,8 @@ get-all
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/ingredients
 get by id
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/ingredient/1
+POST
+PUT
 
 
 Product-Ingredients 
@@ -50,6 +52,8 @@ get-all
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/product-ingredients
 get by id
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/product-ingredient/1
+POST
+PUT
 
 
 Orders 

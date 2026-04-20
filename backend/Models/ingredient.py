@@ -4,6 +4,9 @@ from ..Infrastructure.SQLServerConnection import *
 class RecordNotFoundException(Exception):
     pass
 
+# -------------------------
+# ATTRIBUTES
+# -------------------------
 class Ingredient:
     def __init__(self, *args):
         self._id = 0
@@ -12,11 +15,15 @@ class Ingredient:
         self._status = 1
         self._created_at = None
 
-        # constructors
+        # Constructors
         if len(args) == 1:
             self.load_by_id(args[0])
         elif len(args) == 5:
             self._id, self._name, self._extra_price, self._status, self._created_at = args
+
+    # -------------------------
+    # PROPERTIES
+    # -------------------------
 
     @property
     def id(self):
@@ -53,7 +60,12 @@ class Ingredient:
     def created_at(self, value):
         self._created_at = value
 
-    # GET BY ID
+    # -------------------------
+    # METHODS
+    # -------------------------
+
+    # LOAD BY ID
+    # -------------------------
     def load_by_id(self, ingredient_id):
         try:
             with SQLServerConnection.get_connection() as conn:
@@ -73,9 +85,10 @@ class Ingredient:
             raise e
 
     # GET ALL
+    # -------------------------
     @staticmethod
     def get_all():
-        list = []
+        results = []
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
@@ -85,33 +98,72 @@ class Ingredient:
                     ORDER BY Name
                 """)
                 for row in cursor.fetchall():
-                    list.append(Ingredient(*row))
+                    results.append(Ingredient(*row))
         except Exception as ex:
             print("error fetching ingredients...", ex)
-        return list
+        return results
 
-    def to_json(self):
-        return json.dumps({
+    # TO DICT
+    # -------------------------
+    def to_dict(self):
+        return {
             "id": self._id,
             "name": self._name,
             "extra_price": float(self._extra_price),
             "status": self._status,
             "created_at": self._created_at.isoformat() if self._created_at else None
-        })
+        }
 
-    # INSERT
+    # TO JSON
+    # -------------------------
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+    # ADD
+    # -------------------------
     def add(self):
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO Ingredients (Name, Extra_Price, Status)
+                    OUTPUT INSERTED.Id
                     VALUES (?, ?, ?)
                 """, (
                     self._name,
                     self._extra_price,
                     self._status
                 ))
+
+                self._id = cursor.fetchone()[0]
                 conn.commit()
+
+                return self._id
+
+        except Exception as ex:
+            raise ex
+
+    # UPDATE
+    # -------------------------
+    def update(self):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE Ingredients
+                    SET Name = ?, Extra_Price = ?, Status = ?
+                    WHERE Id = ?
+                """, (
+                    self._name,
+                    self._extra_price,
+                    self._status,
+                    self._id
+                ))
+
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundException(f"Ingredient with id {self._id} was not found.")
+
+                conn.commit()
+
         except Exception as ex:
             raise ex
