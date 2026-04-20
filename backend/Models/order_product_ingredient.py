@@ -1,6 +1,6 @@
 import json
 from ..Infrastructure.SQLServerConnection import *
-from .product_ingredient import product_ingredient
+from .product_ingredient import ProductIngredient
 
 
 class RecordNotFoundException(Exception):
@@ -101,8 +101,7 @@ class OrderProductIngredient:
                     _created_at
                 ) = row
 
-                # 🔥 asociación (mínimo cambio)
-                pi = product_ingredient(_product_ingredient_id)
+                pi = ProductIngredient(_product_ingredient_id)
 
                 result.append({
                     "id": _id,
