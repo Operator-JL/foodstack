@@ -18,7 +18,7 @@ class Product:
         self._status = 1
         self._created_at = None
 
-        # constructors
+        # Constructors
         if len(args) == 1:
             self.load_by_id(args[0])
         elif len(args) == 8:
@@ -96,7 +96,7 @@ class Product:
     # METHODS
     # -------------------------
 
-    # GET BY ID
+    # LOAD BY ID
     # -------------------------
     def load_by_id(self, product_id):
         try:
@@ -150,7 +150,7 @@ class Product:
 
         return result
 
-    # SERIALIZATION
+    # TO DICT
     # -------------------------
     def to_dict(self):
         return {
@@ -164,6 +164,8 @@ class Product:
             "created_at": self._created_at.isoformat() if self._created_at else None
         }
 
+    # TO JSON
+    # -------------------------
     def to_json(self):
         return json.dumps(self.to_dict())
 
@@ -175,6 +177,7 @@ class Product:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO Products (Category_Id, Name, Description, Image, Price, Status)
+                    OUTPUT INSERTED.Id
                     VALUES (?, ?, ?, ?, ?, ?)
                 """, (
                     self._category_id,
@@ -184,6 +187,38 @@ class Product:
                     self._price,
                     self._status
                 ))
+
+                self._id = cursor.fetchone()[0]
+                conn.commit()
+
+                return self._id
+
+        except Exception as ex:
+            raise ex
+
+    # UPDATE
+    # -------------------------
+    def update(self):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE Products
+                    SET Category_Id = ?, Name = ?, Description = ?, Image = ?, Price = ?, Status = ?
+                    WHERE Id = ?
+                """, (
+                    self._category_id,
+                    self._name,
+                    self._description,
+                    self._image,
+                    self._price,
+                    self._status,
+                    self._id
+                ))
+
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundException(f"Product with id {self._id} was not found.")
+
                 conn.commit()
 
         except Exception as ex:

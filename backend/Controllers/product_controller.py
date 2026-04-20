@@ -5,16 +5,14 @@ from ..Security.Auth import require_auth
 
 product_bp = Blueprint('product_bp', __name__)
 
-
-# -------------------------
-# GET ALL 
+# GET ALL
 # -------------------------
 @product_bp.route('/products', methods=['GET'])
 def get_all():
     try:
         return jsonify({
             "status": 0,
-            "data": Product.get_all_details()
+            "data": [p.to_dict() for p in Product.get_all()]
         })
     except Exception as e:
         return jsonify({
@@ -22,20 +20,16 @@ def get_all():
             "errorMessage": str(e)
         })
 
-
-# -------------------------
 # GET BY ID
 # -------------------------
 @product_bp.route('/product/<int:product_id>', methods=['GET'])
 def get_product_by_id(product_id):
     try:
-        with SQLServerConnection.get_connection() as conn:
-            p = Product(product_id)
-
-            return jsonify({
-                "status": 0,
-                "data": p.to_dict(conn)
-            })
+        p = Product(product_id)
+        return jsonify({
+            "status": 0,
+            "data": p.to_dict()
+        })
 
     except RecordNotFoundException as e:
         return jsonify({
@@ -49,9 +43,7 @@ def get_product_by_id(product_id):
             "errorMessage": str(e)
         })
 
-
-# -------------------------
-# CREATE
+# POST
 # -------------------------
 @product_bp.route('/product', methods=['POST'])
 def create_product():
@@ -66,11 +58,49 @@ def create_product():
         p.price = data.get("price")
         p.status = data.get("status", 1)
 
-        p.add()
+        new_id = p.add()
 
         return jsonify({
             "status": 0,
-            "message": "Product created successfully"
+            "message": "Product created successfully",
+            "data": {
+                "id": new_id
+            }
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status": 1,
+            "errorMessage": str(e)
+        })
+
+
+# PUT
+# -------------------------
+@product_bp.route('/product/<int:product_id>', methods=['PUT'])
+def update_product(product_id):
+    try:
+        data = request.get_json()
+        p = Product(product_id)
+
+        p.category_id = data.get("category_id", p.category_id)
+        p.name = data.get("name", p.name)
+        p.description = data.get("description", p.description)
+        p.image = data.get("image", p.image)
+        p.price = data.get("price", p.price)
+        p.status = data.get("status", p.status)
+
+        p.update()
+
+        return jsonify({
+            "status": 0,
+            "message": "Product updated successfully"
+        })
+
+    except RecordNotFoundException as e:
+        return jsonify({
+            "status": 1,
+            "errorMessage": str(e)
         })
 
     except Exception as e:
