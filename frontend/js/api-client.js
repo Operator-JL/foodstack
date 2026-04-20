@@ -10,7 +10,10 @@
     ALLOW_DEMO_AUTH:
       Object.hasOwn(RUNTIME_OVERRIDE, 'ALLOW_DEMO_AUTH')
         ? Boolean(RUNTIME_OVERRIDE.ALLOW_DEMO_AUTH)
-        : true
+        : true,
+    REQUEST_CREDENTIALS: Object.hasOwn(RUNTIME_OVERRIDE, 'REQUEST_CREDENTIALS')
+      ? String(RUNTIME_OVERRIDE.REQUEST_CREDENTIALS || 'omit')
+      : 'omit'
   };
 
   function joinUrl(base, path) {
@@ -60,13 +63,19 @@
       headers['Content-Type'] = 'application/json';
     }
 
+    const requestCredentials = ['omit', 'same-origin', 'include'].includes(
+      String(config.credentials || RUNTIME_CONFIG.REQUEST_CREDENTIALS || 'omit')
+    )
+      ? String(config.credentials || RUNTIME_CONFIG.REQUEST_CREDENTIALS || 'omit')
+      : 'omit';
+
     let response;
 
     try {
       response = await fetch(url, {
         method: method,
         headers: headers,
-        credentials: 'include',
+        credentials: requestCredentials,
         body: config.body != null ? JSON.stringify(config.body) : undefined
       });
     } catch (error) {
@@ -80,14 +89,22 @@
     const payload = await parseJsonSafe(response);
 
     if (!response.ok) {
-      throw new Error(
+      const httpError = new Error(
         toErrorMessage(payload, `API request failed (${response.status}).`)
       );
+      httpError.code = `HTTP_${response.status}`;
+      httpError.httpStatus = response.status;
+      throw httpError;
     }
 
     if (payload && typeof payload === 'object' && Object.hasOwn(payload, 'status')) {
       if (Number(payload.status) !== 0) {
-        throw new Error(toErrorMessage(payload, 'API returned an error response.'));
+        const apiError = new Error(
+          toErrorMessage(payload, 'API returned an error response.')
+        );
+        apiError.code = 'API_STATUS_ERROR';
+        apiError.apiStatus = Number(payload.status);
+        throw apiError;
       }
 
       return Object.hasOwn(payload, 'data') ? payload.data : payload;
@@ -216,6 +233,9 @@
     },
     createOrderProduct(payload) {
       return request('/order-product', { method: 'POST', body: payload });
+    },
+    createOrderProductIngredient(payload) {
+      return request('/order-product-ingredient', { method: 'POST', body: payload });
     },
     getOrderProductIngredients() {
       return request('/order-product-ingredients');

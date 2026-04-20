@@ -80,6 +80,12 @@
   font-size: 1.3rem;
 }
 
+.admin-panel-note {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+}
+
 .seller-list {
   margin: 0;
   padding: 0;
@@ -164,6 +170,26 @@
   background: #fff6d8;
   border-color: #e9da96;
   color: #7a5d12;
+}
+
+.status-badge[data-status="unknown"] {
+  background: #efefef;
+  border-color: #d5d5d5;
+  color: #5b5b5b;
+}
+
+.order-status-action {
+  border: 1px solid #e5c39f;
+  border-radius: 10px;
+  background: #fff6ed;
+  color: #7d4a1e;
+  font-size: 0.76rem;
+  padding: 0.3rem 0.45rem;
+}
+
+.order-status-action:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
 }
 
 .products-list {

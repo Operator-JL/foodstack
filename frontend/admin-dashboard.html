@@ -57,6 +57,29 @@
         <div id="products-list" class="products-list"></div>
       </section>
 
+      <section class="admin-panel" aria-label="Orders board">
+        <div class="admin-panel__head">
+          <h2>Orders Board</h2>
+          <p id="orders-status-note" class="admin-panel-note"></p>
+        </div>
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Status Update</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody id="admin-orders-board-body"></tbody>
+          </table>
+        </div>
+      </section>
+
       <p id="admin-inline-msg" class="admin-inline-msg" aria-live="polite"></p>
     </section>
   </main>

@@ -275,6 +275,91 @@
       });
   }
 
+  function buildOrdersBoard(orders, orderProducts, userMap, productMap, options) {
+    const config = options || {};
+    const ordersEndpointHealthy = Boolean(config.ordersEndpointHealthy);
+    const groupedLines = new Map();
+
+    orderProducts.forEach((line) => {
+      const orderId = normalizeText(line && line.orderId);
+
+      if (!orderId) {
+        return;
+      }
+
+      const current = groupedLines.get(orderId) || [];
+      current.push(line);
+      groupedLines.set(orderId, current);
+    });
+
+    if (ordersEndpointHealthy && Array.isArray(orders) && orders.length) {
+      return sortByNewest(orders).slice(0, 30).map((order) => {
+        const lines = groupedLines.get(order.id) || [];
+        const itemCount = lines.reduce((sum, line) => sum + normalizeNumber(line.quantity), 0);
+        const productNames = lines
+          .slice(0, 3)
+          .map((line) => {
+            const product = productMap.get(line.productId);
+            return product ? product.name : `Product #${line.productId}`;
+          })
+          .join(', ');
+        const customer = userMap.get(order.userId);
+
+        return {
+          orderRef: order.displayId,
+          orderId: order.id,
+          customer: customer ? userDisplayName(customer) : `User #${order.userId || 'N/A'}`,
+          status: order.status || 'pending',
+          total: order.total,
+          itemCount: itemCount,
+          productsSummary: productNames || 'No line items found',
+          createdAt: order.createdAt,
+          source: 'orders+order-products'
+        };
+      });
+    }
+
+    return Array.from(groupedLines.entries())
+      .map(([orderId, lines]) => {
+        const itemCount = lines.reduce((sum, line) => sum + normalizeNumber(line.quantity), 0);
+        const total = lines.reduce(
+          (sum, line) => sum + normalizeNumber(line.price) * normalizeNumber(line.quantity),
+          0
+        );
+        const createdAt = lines
+          .map((line) => parseDateSafe(line.createdAt))
+          .filter(Boolean)
+          .sort((a, b) => b.getTime() - a.getTime())[0];
+        const productNames = lines
+          .slice(0, 3)
+          .map((line) => {
+            const product = productMap.get(line.productId);
+            return product ? product.name : `Product #${line.productId}`;
+          })
+          .join(', ');
+
+        return {
+          orderRef: `ORD-${orderId}`,
+          orderId: orderId,
+          customer: 'Unknown (orders endpoint unavailable)',
+          status: 'unknown',
+          total: total,
+          itemCount: itemCount,
+          productsSummary: productNames || 'No products listed',
+          createdAt: createdAt ? createdAt.toISOString() : null,
+          source: 'order-products-only'
+        };
+      })
+      .sort((a, b) => {
+        const aTime = parseDateSafe(a.createdAt);
+        const bTime = parseDateSafe(b.createdAt);
+        const aScore = aTime ? aTime.getTime() : 0;
+        const bScore = bTime ? bTime.getTime() : 0;
+        return bScore - aScore;
+      })
+      .slice(0, 30);
+  }
+
   function buildProductsForDashboard(products) {
     return products.map((item) => ({
       id: item.id,
@@ -572,6 +657,11 @@
           fallbackResult
         ];
 
+    const endpointStatus = {
+      orders: !ordersResult.warning,
+      orderProducts: !orderProductsResult.warning
+    };
+
     const warnings = [
       categoriesResult.warning,
       productsResult.warning,
@@ -658,7 +748,8 @@
       orderProducts: orderProducts,
       ingredients: ingredients,
       productIngredients: productIngredients,
-      warnings: Array.from(new Set(dedupedWarnings.concat(warnings)))
+      warnings: Array.from(new Set(dedupedWarnings.concat(warnings))),
+      endpointStatus: endpointStatus
     };
   }
 
@@ -728,13 +819,30 @@
     const base = await loadBaseData();
     const productMap = new Map(base.products.map((item) => [item.id, item]));
     const userMap = new Map(base.users.map((item) => [item.id, item]));
+    const ordersBoard = buildOrdersBoard(
+      base.orders,
+      base.orderProducts,
+      userMap,
+      productMap,
+      {
+        ordersEndpointHealthy: base.endpointStatus && base.endpointStatus.orders
+      }
+    );
 
     return {
       summary: calculateSummary(base.products, base.orders),
       bestSellers: buildBestSellers(base.orderProducts, productMap),
       recentOrders: buildRecentOrders(base.orders, userMap),
       products: buildProductsForDashboard(base.products),
-      warnings: base.warnings
+      warnings: base.warnings,
+      ordersBoard: ordersBoard,
+      orderCapabilities: {
+        canReadOrders: Boolean(base.endpointStatus && base.endpointStatus.orders),
+        canReadOrderProducts: Boolean(
+          base.endpointStatus && base.endpointStatus.orderProducts
+        ),
+        canUpdateOrderStatus: false
+      }
     };
   }
 

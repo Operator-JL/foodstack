@@ -16,6 +16,32 @@ document.addEventListener('DOMContentLoaded', () => {
     authMessage.classList.toggle('is-success', Boolean(isSuccess));
   }
 
+  function describeAuthError(error, actionLabel) {
+    const fallback = actionLabel || 'Unable to complete request.';
+
+    if (!(error instanceof Error)) {
+      return fallback;
+    }
+
+    if (error.code === 'NETWORK_ERROR') {
+      return 'Cannot reach API (backend offline/CORS/network).';
+    }
+
+    if (error.code === 'HTTP_400') {
+      return `${actionLabel} failed: invalid payload sent to API.`;
+    }
+
+    if (error.code === 'HTTP_401') {
+      return 'Invalid credentials.';
+    }
+
+    if (error.code === 'HTTP_404') {
+      return `${actionLabel} failed: endpoint not found.`;
+    }
+
+    return error.message || fallback;
+  }
+
   function setSubmitting(button, submitting, loadingLabel) {
     if (!button) {
       return;
@@ -149,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'home.html';
       }, 300);
     } catch (error) {
-      const details = error instanceof Error ? error.message : 'Unable to sign in.';
+      const details = describeAuthError(error, 'Login');
       const hint =
         runtime.ALLOW_DEMO_AUTH || runtime.DEV_FALLBACK_MODE
           ? ' You can continue in Demo Mode.'
@@ -218,8 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.href = 'login.html';
       }, 550);
     } catch (error) {
-      const details =
-        error instanceof Error ? error.message : 'Unable to create account.';
+      const details = describeAuthError(error, 'Signup');
       const hint =
         runtime.ALLOW_DEMO_AUTH || runtime.DEV_FALLBACK_MODE
           ? ' You can continue in Demo Mode.'

@@ -8,11 +8,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const list = document.getElementById('cart-items');
+  const historyContent = document.getElementById('order-history-content');
   const countNodes = document.querySelectorAll('[data-cart-count]');
   const subtotalNode = document.getElementById('summary-subtotal');
   const feeNode = document.getElementById('summary-fee');
   const totalNode = document.getElementById('summary-total');
   const proceedButton = document.getElementById('proceed-order-btn');
+
+  const LOCAL_ORDER_LOG_KEY = 'foodstack-order-log';
 
   let lastSummary = { subtotal: 0, fee: 0, total: 0 };
   let lastItems = [];
@@ -24,6 +27,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  function formatMoney(value) {
+    return data.money(Number(value || 0));
+  }
+
+  function formatDateTime(value) {
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+      return '--';
+    }
+
+    return parsed.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  }
+
+  function normalizeText(value) {
+    return String(value || '').trim();
+  }
+
+  function normalizeNumber(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   function setProceedState(loading, label) {
@@ -162,7 +193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               <div>
                 <h3 class="cart-item__title">${name}</h3>
                 <p class="cart-item__description">${description}</p>
-                <p class="cart-item__price">Unit: ${data.money(item.price)}</p>
+                <p class="cart-item__price">Unit: ${formatMoney(item.price)}</p>
               </div>
               <div class="cart-item__right">
                 <div class="qty-control" role="group" aria-label="Quantity for ${name}">
@@ -170,7 +201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                   <span>${item.qty}</span>
                   <button type="button" data-qty-action="inc" data-product-id="${itemId}">+</button>
                 </div>
-                <p class="cart-item__subtotal">${data.money(subtotal)}</p>
+                <p class="cart-item__subtotal">${formatMoney(subtotal)}</p>
               </div>
             </article>
           `;
@@ -189,17 +220,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const count = items.reduce((sum, item) => sum + item.qty, 0);
 
     if (subtotalNode) {
-      subtotalNode.textContent = data.money(summary.subtotal);
+      subtotalNode.textContent = formatMoney(summary.subtotal);
       pulseValue(subtotalNode);
     }
 
     if (feeNode) {
-      feeNode.textContent = data.money(summary.fee);
+      feeNode.textContent = formatMoney(summary.fee);
       pulseValue(feeNode);
     }
 
     if (totalNode) {
-      totalNode.textContent = data.money(summary.total);
+      totalNode.textContent = formatMoney(summary.total);
       pulseValue(totalNode);
     }
 
@@ -207,18 +238,260 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function readCurrentUser() {
-    const raw = window.localStorage.getItem('foodstack-user');
+    const candidates = ['foodstack-user', 'user'];
+
+    for (const key of candidates) {
+      const raw = window.localStorage.getItem(key);
+
+      if (!raw) {
+        continue;
+      }
+
+      try {
+        const parsed = JSON.parse(raw);
+
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  function readLocalOrderLog() {
+    const raw = window.localStorage.getItem(LOCAL_ORDER_LOG_KEY);
 
     if (!raw) {
-      return null;
+      return [];
     }
 
     try {
       const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? parsed : null;
+      return Array.isArray(parsed) ? parsed : [];
     } catch (error) {
+      return [];
+    }
+  }
+
+  function writeLocalOrderLog(items) {
+    window.localStorage.setItem(LOCAL_ORDER_LOG_KEY, JSON.stringify(items));
+  }
+
+  function appendLocalOrderLog(entry) {
+    const current = readLocalOrderLog();
+    current.unshift(entry);
+    writeLocalOrderLog(current.slice(0, 50));
+  }
+
+  function normalizeStatusLabel(value) {
+    const text = normalizeText(value).toLowerCase();
+
+    if (!text) {
+      return 'Unknown';
+    }
+
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function renderOrderHistory(items, warning) {
+    if (!historyContent) {
+      return;
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      historyContent.innerHTML = `
+        <article class="order-history-item">
+          <p class="order-history-item__id">No orders yet</p>
+          <p class="order-history-item__meta">Place your first order to build history.</p>
+        </article>
+      `;
+      return;
+    }
+
+    const warningMarkup = warning
+      ? `<article class="order-history-item"><p class="order-history-item__meta">${escapeHtml(
+          warning
+        )}</p></article>`
+      : '';
+
+    const listMarkup = items
+      .slice(0, 10)
+      .map((item) => {
+        const orderRef = escapeHtml(item.orderRef || item.id || 'Unknown');
+        const status = escapeHtml(normalizeStatusLabel(item.status));
+        const source = escapeHtml(item.source || 'api');
+        const createdAt = formatDateTime(item.createdAt);
+        const total = formatMoney(item.total);
+        const itemCount = Number(item.itemCount || 0);
+        const details = escapeHtml(item.details || '');
+
+        return `
+          <article class="order-history-item">
+            <div class="order-history-item__top">
+              <p class="order-history-item__id">${orderRef}</p>
+              <strong>${total}</strong>
+            </div>
+            <p class="order-history-item__meta">${createdAt} · ${status} · source: ${source}</p>
+            <p class="order-history-item__details">Items: <code>${itemCount}</code> ${details}</p>
+          </article>
+        `;
+      })
+      .join('');
+
+    historyContent.innerHTML = `${warningMarkup}${listMarkup}`;
+  }
+
+  async function loadUserOrderHistory() {
+    const user = readCurrentUser();
+    const userId = normalizeText(user && user.id);
+
+    if (!historyContent) {
+      return;
+    }
+
+    if (!userId) {
+      renderOrderHistory([], 'Log in to view order history.');
+      return;
+    }
+
+    const localLogs = readLocalOrderLog()
+      .filter((entry) => normalizeText(entry && entry.userId) === userId)
+      .map((entry) => ({
+        id: entry.id,
+        orderRef: entry.orderRef || entry.id,
+        status: entry.status,
+        total: normalizeNumber(entry.total),
+        itemCount: normalizeNumber(entry.itemCount),
+        createdAt: entry.createdAt,
+        source: entry.source || 'local',
+        details: entry.details || ''
+      }));
+
+    if (!api) {
+      renderOrderHistory(localLogs, 'Orders API is not available.');
+      return;
+    }
+
+    let warning = '';
+    let apiHistory = [];
+
+    try {
+      const [ordersRaw, orderProductsRaw] = await Promise.all([
+        api.getOrders(),
+        api.getOrderProducts()
+      ]);
+
+      const orders = Array.isArray(ordersRaw) ? ordersRaw : [];
+      const orderProducts = Array.isArray(orderProductsRaw) ? orderProductsRaw : [];
+      const groupedItems = new Map();
+
+      orderProducts.forEach((row) => {
+        const orderId = normalizeText(row && row.order_id);
+        const quantity = Math.max(0, Math.floor(normalizeNumber(row && row.quantity)));
+
+        if (!orderId) {
+          return;
+        }
+
+        const current = groupedItems.get(orderId) || 0;
+        groupedItems.set(orderId, current + quantity);
+      });
+
+      apiHistory = orders
+        .filter((order) => normalizeText(order && order.user_id) === userId)
+        .map((order) => {
+          const orderId = normalizeText(order && order.id);
+          const createdAt = order && (order.datetime || order.created_at);
+          const displayId = orderId ? `ORD-${orderId}` : 'ORD-UNKNOWN';
+
+          return {
+            id: orderId,
+            orderRef: displayId,
+            status: normalizeText(order && order.status) || 'pending',
+            total: normalizeNumber(order && order.total),
+            itemCount: groupedItems.get(orderId) || 0,
+            createdAt: createdAt,
+            source: 'api',
+            details: ''
+          };
+        });
+    } catch (error) {
+      warning =
+        error instanceof Error
+          ? `Could not load live order history: ${error.message}`
+          : 'Could not load live order history.';
+    }
+
+    const combined = apiHistory
+      .concat(localLogs)
+      .sort((a, b) => {
+        const aTime = new Date(a.createdAt || 0).getTime() || 0;
+        const bTime = new Date(b.createdAt || 0).getTime() || 0;
+        return bTime - aTime;
+      });
+
+    renderOrderHistory(combined, warning);
+  }
+
+  async function resolveCreatedOrderId(userId, total) {
+    if (!api) {
       return null;
     }
+
+    const ordersRaw = await api.getOrders();
+    const orders = Array.isArray(ordersRaw) ? ordersRaw : [];
+    const now = Date.now();
+
+    const matches = orders
+      .filter((order) => normalizeText(order && order.user_id) === String(userId))
+      .filter((order) => Math.abs(normalizeNumber(order && order.total) - total) < 0.011)
+      .filter((order) => {
+        const createdAt = new Date(order && (order.datetime || order.created_at)).getTime();
+        return Number.isFinite(createdAt) ? Math.abs(now - createdAt) <= 1000 * 60 * 20 : true;
+      })
+      .sort((a, b) => normalizeNumber(b && b.id) - normalizeNumber(a && a.id));
+
+    return matches.length ? normalizeText(matches[0].id) : null;
+  }
+
+  async function createOrderLines(orderId, items) {
+    const outcomes = [];
+
+    for (const item of items) {
+      try {
+        await api.createOrderProduct({
+          order_id: Number(orderId),
+          product_id: Number(item.id),
+          quantity: Number(item.qty),
+          price: Number(item.price),
+          status: 1
+        });
+
+        outcomes.push({ ok: true, itemId: item.id });
+      } catch (error) {
+        outcomes.push({
+          ok: false,
+          itemId: item.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    return outcomes;
+  }
+
+  function cartDetailsSnippet(items) {
+    if (!Array.isArray(items) || !items.length) {
+      return '';
+    }
+
+    return items
+      .slice(0, 3)
+      .map((item) => `${item.name} x${item.qty}`)
+      .join(' · ');
   }
 
   async function submitOrder() {
@@ -240,7 +513,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    const confirmOrder = window.confirm(
+      `Confirm order for ${formatMoney(lastSummary.total)}?`
+    );
+
+    if (!confirmOrder) {
+      return;
+    }
+
     setProceedState(true, 'Placing order...');
+    showInlineMessage('Creating order...');
+
+    const nowIso = new Date().toISOString();
+    const localBase = {
+      id: `LOCAL-${Date.now()}`,
+      userId: String(userId),
+      total: Number(lastSummary.total.toFixed(2)),
+      itemCount: lastItems.reduce((sum, item) => sum + Number(item.qty || 0), 0),
+      createdAt: nowIso,
+      details: cartDetailsSnippet(lastItems),
+      source: 'local',
+      status: 'pending'
+    };
 
     try {
       await api.createOrder({
@@ -249,51 +543,72 @@ document.addEventListener('DOMContentLoaded', async () => {
         status: 'pending'
       });
 
-      /*
-        The current backend response for /order does not return the new order id,
-        so order-product rows cannot be linked safely yet from the frontend.
-      */
+      let orderId = null;
 
-      data.clearCart();
-      render();
-      showInlineMessage(
-        'Order was created successfully. Product line linking awaits backend order id response.'
-      );
-    } catch (error) {
-      if (runtime.DEV_FALLBACK_MODE) {
-        const demoOrdersRaw = window.localStorage.getItem('foodstack-demo-orders');
-        let demoOrders = [];
+      try {
+        orderId = await resolveCreatedOrderId(userId, Number(lastSummary.total.toFixed(2)));
+      } catch (resolveError) {
+        orderId = null;
+      }
 
-        try {
-          demoOrders = demoOrdersRaw ? JSON.parse(demoOrdersRaw) : [];
-        } catch (parseError) {
-          demoOrders = [];
-        }
-
-        demoOrders.push({
-          id: `DEMO-${Date.now()}`,
-          userId: userId,
-          total: Number(lastSummary.total.toFixed(2)),
-          items: lastItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            qty: item.qty,
-            unitPrice: item.price
-          })),
-          createdAt: new Date().toISOString(),
-          source: 'demo-fallback'
+      if (!orderId) {
+        appendLocalOrderLog({
+          ...localBase,
+          orderRef: 'Pending order id',
+          status: 'created-base-unlinked',
+          details:
+            'Order base was created, but backend did not expose order id for linking line items.'
         });
 
-        window.localStorage.setItem(
-          'foodstack-demo-orders',
-          JSON.stringify(demoOrders)
+        showInlineMessage(
+          'Order base created, but backend did not expose order id. Cart was kept to avoid losing items.'
         );
+        await loadUserOrderHistory();
+        return;
+      }
+
+      const lineResults = await createOrderLines(orderId, lastItems);
+      const failedLines = lineResults.filter((item) => !item.ok);
+
+      if (failedLines.length === 0) {
+        appendLocalOrderLog({
+          ...localBase,
+          orderRef: `ORD-${orderId}`,
+          status: 'completed',
+          source: 'api',
+          details: 'Order and line items persisted through API.'
+        });
 
         data.clearCart();
         render();
+        showInlineMessage(`Order ORD-${orderId} placed successfully.`);
+      } else {
+        appendLocalOrderLog({
+          ...localBase,
+          orderRef: `ORD-${orderId}`,
+          status: 'partial-lines',
+          source: 'api',
+          details: `${failedLines.length} line item(s) could not be saved.`
+        });
+
         showInlineMessage(
-          'API unavailable. Order was saved locally in demo mode.'
+          `Order ORD-${orderId} was created, but ${failedLines.length} line item(s) failed. Cart was kept.`
         );
+      }
+
+      await loadUserOrderHistory();
+    } catch (error) {
+      if (runtime.DEV_FALLBACK_MODE) {
+        appendLocalOrderLog({
+          ...localBase,
+          status: 'local-only',
+          details: 'API unavailable. Local record created for development tracking.'
+        });
+
+        showInlineMessage(
+          'API unavailable. Local order log was saved, cart kept for safe retry.'
+        );
+        await loadUserOrderHistory();
         return;
       }
 
@@ -319,6 +634,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const result = await data.loadCatalog();
     render();
     showInlineMessage(result && result.source === 'demo' ? result.warning : '');
+    await loadUserOrderHistory();
   } catch (error) {
     if (list) {
       list.innerHTML = '';
@@ -326,5 +642,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     showInlineMessage(data.getCatalogError() || 'Could not load cart products from API.');
     updateBadge(0);
+    renderOrderHistory([], 'Could not load order history.');
   }
 });

@@ -4,6 +4,66 @@
   gap: 1.55rem;
 }
 
+.order-history-panel {
+  margin-top: 1.25rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  background: var(--surface-soft);
+  box-shadow: var(--shadow-soft);
+  padding: 1.3rem;
+}
+
+.order-history-panel__head {
+  margin-bottom: 0.85rem;
+}
+
+.order-history-list {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.order-history-item {
+  border: 1px solid #efcfad;
+  border-radius: 14px;
+  background: #fff9f2;
+  padding: 0.75rem 0.85rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.order-history-item__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.order-history-item__id {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.order-history-item__meta {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.84rem;
+}
+
+.order-history-item__details {
+  margin: 0;
+  color: #694221;
+  font-size: 0.84rem;
+}
+
+.order-history-item__details code {
+  font-family: inherit;
+  background: #ffe9cf;
+  border: 1px solid #efcfad;
+  border-radius: 8px;
+  padding: 0.12rem 0.38rem;
+}
+
 .cart-list,
 .cart-summary {
   border: 1px solid var(--border-soft);
