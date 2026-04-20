@@ -6,7 +6,8 @@ from ..Security.Auth import require_auth, generate_token
 
 user_bp = Blueprint('user_bp', __name__)
 
-#GET
+# GET ALL
+# -------------------------
 @user_bp.route('/users', methods=['GET'])
 def get_user():
     try:
@@ -20,7 +21,8 @@ def get_user():
             "errorMessage": str(e)
         })
 
-#GET by id
+# GET by user id
+# -------------------------
 @user_bp.route('/user/<int:user_id>', methods=['GET'])
 def get_user_with_orders(user_id):
     try:
@@ -39,7 +41,8 @@ def get_user_with_orders(user_id):
             "errorMessage": str(e)
         })
     
-#POST
+# POST
+# -------------------------
 @user_bp.route('/user', methods=['POST'])
 def create_user():
     try:
@@ -126,7 +129,7 @@ def logout():
 
     return response
 
-#PUT
+# PUT
 # -------------------------
 @user_bp.route('/user/<int:user_id>', methods=['PUT'])
 def update_user(user_id):

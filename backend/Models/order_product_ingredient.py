@@ -1,5 +1,6 @@
 import json
 from ..Infrastructure.SQLServerConnection import *
+from .product_ingredient import ProductIngredient
 
 class RecordNotFoundException(Exception):
     pass
@@ -11,7 +12,7 @@ class OrderProductIngredient:
     def __init__(self, *args):
         self._id = 0
         self._order_product_id = 0
-        self._ingredient_id = 0
+        self._product_ingredient_id = 0
         self._quantity = 1
         self._status = 1
         self._created_at = None
@@ -23,7 +24,7 @@ class OrderProductIngredient:
             (
                 self._id,
                 self._order_product_id,
-                self._ingredient_id,
+                self._product_ingredient_id,
                 self._quantity,
                 self._status,
                 self._created_at
@@ -50,12 +51,12 @@ class OrderProductIngredient:
         self._order_product_id = value
 
     @property
-    def ingredient_id(self):
-        return self._ingredient_id
+    def product_ingredient_id(self):
+        return self._product_ingredient_id
 
-    @ingredient_id.setter
-    def ingredient_id(self, value):
-        self._ingredient_id = value
+    @product_ingredient_id.setter
+    def product_ingredient_id(self, value):
+        self._product_ingredient_id = value
 
     @property
     def quantity(self):
@@ -96,7 +97,7 @@ class OrderProductIngredient:
                 cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT Id, Order_Product_Id, Ingredient_Id, Quantity, Status, Created_At
+                SELECT Id, Order_Product_Id, Product_Ingredient_Id, Quantity, Status, Created_At
                 FROM Order_Product_Ingredients
                 WHERE Id = ?
             """, opi_id)
@@ -106,7 +107,7 @@ class OrderProductIngredient:
                 (
                     self._id,
                     self._order_product_id,
-                    self._ingredient_id,
+                    self._product_ingredient_id,
                     self._quantity,
                     self._status,
                     self._created_at
@@ -127,19 +128,23 @@ class OrderProductIngredient:
             opi = OrderProductIngredient()
             opi.load_by_id(opi_id, conn)
 
+            product_ingredient = ProductIngredient.get_by_id(opi.product_ingredient_id, conn)
+
             return {
                 "id": opi.id,
                 "order_product_id": opi.order_product_id,
-                "ingredient_id": opi.ingredient_id,
+                "product_ingredient_id": opi.product_ingredient_id,
                 "quantity": opi.quantity,
                 "status": opi.status,
-                "created_at": opi.created_at.isoformat() if opi.created_at else None
+                "created_at": opi.created_at.isoformat() if opi.created_at else None,
+
+                "product_ingredient": product_ingredient
             }
 
         except Exception as ex:
             raise ex
 
-    # GET BY ORDER_PRODUCT_ID
+    # GET BY ORDER_PRODUCT_ID 
     # -------------------------
     @staticmethod
     def get_by_order_product_id(order_product_id, conn):
@@ -148,7 +153,7 @@ class OrderProductIngredient:
         try:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT Id, Order_Product_Id, Ingredient_Id, Quantity, Status, Created_At
+                SELECT Id, Order_Product_Id, Product_Ingredient_Id, Quantity, Status, Created_At
                 FROM Order_Product_Ingredients
                 WHERE Order_Product_Id = ?
             """, order_product_id)
@@ -156,13 +161,17 @@ class OrderProductIngredient:
             for row in cursor.fetchall():
                 opi = OrderProductIngredient(*row)
 
+                product_ingredient = ProductIngredient.get_by_id(opi.product_ingredient_id, conn)
+
                 ingredients.append({
                     "id": opi.id,
                     "order_product_id": opi.order_product_id,
-                    "ingredient_id": opi.ingredient_id,
+                    "product_ingredient_id": opi.product_ingredient_id,
                     "quantity": opi.quantity,
                     "status": opi.status,
-                    "created_at": opi.created_at.isoformat() if opi.created_at else None
+                    "created_at": opi.created_at.isoformat() if opi.created_at else None,
+
+                    "product_ingredient": product_ingredient
                 })
 
         except Exception as ex:
@@ -180,7 +189,7 @@ class OrderProductIngredient:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT Id, Order_Product_Id, Ingredient_Id, Quantity, Status, Created_At
+                    SELECT Id, Order_Product_Id, Product_Ingredient_Id, Quantity, Status, Created_At
                     FROM Order_Product_Ingredients
                     ORDER BY Id DESC
                 """)
@@ -201,12 +210,12 @@ class OrderProductIngredient:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO Order_Product_Ingredients
-                    (Order_Product_Id, Ingredient_Id, Quantity, Status)
+                    (Order_Product_Id, Product_Ingredient_Id, Quantity, Status)
                     OUTPUT INSERTED.Id
                     VALUES (?, ?, ?, ?)
                 """, (
                     self._order_product_id,
-                    self._ingredient_id,
+                    self._product_ingredient_id,
                     self._quantity,
                     self._status
                 ))
@@ -227,11 +236,11 @@ class OrderProductIngredient:
                 cursor = conn.cursor()
                 cursor.execute("""
                     UPDATE Order_Product_Ingredients
-                    SET Order_Product_Id = ?, Ingredient_Id = ?, Quantity = ?, Status = ?
+                    SET Order_Product_Id = ?, Product_Ingredient_Id = ?, Quantity = ?, Status = ?
                     WHERE Id = ?
                 """, (
                     self._order_product_id,
-                    self._ingredient_id,
+                    self._product_ingredient_id,
                     self._quantity,
                     self._status,
                     self._id
@@ -253,9 +262,8 @@ class OrderProductIngredient:
         return json.dumps({
             "id": self._id,
             "order_product_id": self._order_product_id,
-            "ingredient_id": self._ingredient_id,
+            "product_ingredient_id": self._product_ingredient_id,
             "quantity": self._quantity,
             "status": self._status,
             "created_at": self._created_at.isoformat() if self._created_at else None
         })
-            

@@ -2,11 +2,12 @@ from flask import jsonify, Blueprint, request
 import json
 
 from backend.Models.order_product_ingredient import OrderProductIngredient
-from ..Security.Auth import require_auth
 
 order_product_ingredient_bp = Blueprint('order_product_ingredient_bp', __name__)
 
-# GET
+# -------------------------
+# GET ALL
+# -------------------------
 @order_product_ingredient_bp.route('/order-product-ingredients', methods=['GET'])
 def get_all():
     try:
@@ -20,28 +21,36 @@ def get_all():
             "errorMessage": str(e)
         })
 
-# GET by id
+
+# -------------------------
+# GET BY ID
+# -------------------------
 @order_product_ingredient_bp.route('/order-product-ingredient/<int:id>', methods=['GET'])
 def get_by_id(id):
     try:
-        opi = OrderProductIngredient(id)
+        opi = OrderProductIngredient.get_by_id(id)
+
         return jsonify({
             "status": 0,
-            "data": json.loads(opi.to_json())
+            "data": opi
         })
+
     except Exception as e:
         return jsonify({
             "status": 1,
             "errorMessage": str(e)
         })
 
-# POST
+
+# -------------------------
+# CREATE
+# -------------------------
 @order_product_ingredient_bp.route('/order-product-ingredient', methods=['POST'])
 def create():
     try:
         data = request.get_json()
-        opi = OrderProductIngredient()
 
+        opi = OrderProductIngredient()
         opi.order_product_id = data.get("order_product_id")
         opi.product_ingredient_id = data.get("product_ingredient_id")
         opi.quantity = data.get("quantity", 1)
@@ -51,8 +60,12 @@ def create():
 
         return jsonify({
             "status": 0,
-            "message": "Order product ingredient created successfully"
+            "message": "Order product ingredient created successfully",
+            "data": {
+                "id": opi.id
+            }
         })
+
     except Exception as e:
         return jsonify({
             "status": 1,

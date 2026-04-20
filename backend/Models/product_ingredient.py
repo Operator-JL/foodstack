@@ -4,7 +4,9 @@ from ..Infrastructure.SQLServerConnection import *
 class RecordNotFoundException(Exception):
     pass
 
-
+# -------------------------
+# ATTRIBUTES
+# -------------------------
 class ProductIngredient:
     def __init__(self, *args):
         self._id = 0
