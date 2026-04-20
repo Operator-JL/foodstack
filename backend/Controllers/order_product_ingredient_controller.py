@@ -6,7 +6,7 @@ from ..Security.Auth import require_auth
 
 order_product_ingredient_bp = Blueprint('order_product_ingredient_bp', __name__)
 
-#GET
+# GET
 @order_product_ingredient_bp.route('/order-product-ingredients', methods=['GET'])
 def get_all():
     try:
@@ -20,7 +20,7 @@ def get_all():
             "errorMessage": str(e)
         })
 
-#GET by id
+# GET by id
 @order_product_ingredient_bp.route('/order-product-ingredient/<int:id>', methods=['GET'])
 def get_by_id(id):
     try:
@@ -35,7 +35,7 @@ def get_by_id(id):
             "errorMessage": str(e)
         })
 
-#POST
+# POST
 @order_product_ingredient_bp.route('/order-product-ingredient', methods=['POST'])
 def create():
     try:
@@ -43,7 +43,7 @@ def create():
         opi = OrderProductIngredient()
 
         opi.order_product_id = data.get("order_product_id")
-        opi.ingredient_id = data.get("ingredient_id")
+        opi.product_ingredient_id = data.get("product_ingredient_id")
         opi.quantity = data.get("quantity", 1)
         opi.status = data.get("status", 1)
 

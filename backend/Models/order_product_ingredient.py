@@ -1,9 +1,14 @@
 import json
 from ..Infrastructure.SQLServerConnection import *
+from .product_ingredient import product_ingredient
+
 
 class RecordNotFoundException(Exception):
     pass
 
+# -------------------------
+# ATTRIBUTES
+# -------------------------
 class OrderProductIngredient:
     def __init__(self, *args):
         self._id = 0
@@ -26,6 +31,9 @@ class OrderProductIngredient:
                 self._created_at
             ) = args
 
+    # -------------------------
+    # PROPERTIES
+    # -------------------------
     @property
     def id(self):
         return self._id
@@ -66,7 +74,10 @@ class OrderProductIngredient:
     def created_at(self):
         return self._created_at
 
+    # --------------------------
+    # METHODS
     # -------------------------
+
     # GET BY ORDER_PRODUCT_ID
     # -------------------------
     @staticmethod
@@ -90,13 +101,19 @@ class OrderProductIngredient:
                     _created_at
                 ) = row
 
+                # 🔥 asociación (mínimo cambio)
+                pi = product_ingredient(_product_ingredient_id)
+
                 result.append({
                     "id": _id,
                     "order_product_id": _order_product_id,
                     "product_ingredient_id": _product_ingredient_id,
                     "quantity": _quantity,
                     "status": _status,
-                    "created_at": _created_at.isoformat() if _created_at else None
+                    "created_at": _created_at.isoformat() if _created_at else None,
+
+                    # 🔥 agregado sin romper estructura
+                    "product_ingredient": pi.to_dict() if hasattr(pi, "to_dict") else None
                 })
 
         except Exception as ex:
@@ -104,7 +121,6 @@ class OrderProductIngredient:
 
         return result
 
-    # -------------------------
     # GET BY ID
     # -------------------------
     def load_by_id(self, id):
@@ -132,7 +148,6 @@ class OrderProductIngredient:
         except Exception as e:
             raise e
 
-    # -------------------------
     # GET ALL
     # -------------------------
     @staticmethod
@@ -165,7 +180,6 @@ class OrderProductIngredient:
             "created_at": self._created_at.isoformat() if self._created_at else None
         })
 
-    # -------------------------
     # INSERT
     # -------------------------
     def add(self):
@@ -185,3 +199,4 @@ class OrderProductIngredient:
                 conn.commit()
         except Exception as ex:
             raise ex
+            

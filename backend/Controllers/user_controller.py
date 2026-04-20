@@ -68,7 +68,8 @@ def create_user():
             "errorMessage": str(e)
         })
 
-
+# LOGIN
+# -------------------------
 @user_bp.route("/login", methods=["POST"])
 def login():
     try:
@@ -112,7 +113,8 @@ def login():
             "errorMessage": str(ex)
         }), 400
 
-
+# LOGOUT
+# -------------------------
 @user_bp.route("/logout", methods=["POST"])
 def logout():
     response = jsonify({
@@ -125,6 +127,7 @@ def logout():
     return response
 
 #PUT
+# -------------------------
 @user_bp.route('/user/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
     try:

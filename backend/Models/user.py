@@ -8,7 +8,9 @@ from .order import Order
 class RecordNotFoundException(Exception):
     pass
 
-
+# -------------------------
+# ATTRIBUTES
+# -------------------------
 class User:
     def __init__(self, *args):
         self._id = 0
@@ -37,7 +39,9 @@ class User:
                 self._created_at,
             ) = args
 
-    # ---------------- PROPERTIES ----------------
+    # -------------------------
+    # PROPERTIES
+    # -------------------------
 
     @property
     def id(self):
@@ -113,14 +117,20 @@ class User:
     def created_at(self, value):
         self._created_at = value
 
-    # ---------------- DB METHODS ----------------
+    # -------------------------
+    # METHODS
+    # -------------------------
 
+    # GET ORDERS
+    # -------------------------
     def get_orders(self, conn):
         try:
             return Order.get_by_user_id(self._id, conn)
         except Exception as ex:
             raise ex
 
+    # DETAILS
+    # -------------------------
     def details(self, conn):
         self.load_by_id(self._id)
 
@@ -134,7 +144,8 @@ class User:
             "orders": orders 
         }
 
-
+    # TO JSON
+    # -------------------------
     def load_by_id(self, user_id):
         try:
             with SQLServerConnection.get_connection() as conn:
@@ -165,6 +176,7 @@ class User:
             raise e
 
     # GET ALL
+    # -------------------------
     @staticmethod
     def get_all():
         users = []
@@ -182,7 +194,30 @@ class User:
             print("error fetching users...", ex)
         return users
 
-    # INSERT
+    # GET BY EMAIL
+    # -------------------------
+    @staticmethod
+    def get_by_email(email):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT id, name, lastname, phone_number, email, password_hash, role, status, created_at
+                    FROM Users
+                    WHERE email = ?
+                """, email)
+
+                row = cursor.fetchone()
+                if row:
+                    return User(*row)
+
+        except Exception as ex:
+            print("error fetching user by email...", ex)
+
+        return None
+
+    # ADD
+    # -------------------------
     def add(self):
         try:
             with SQLServerConnection.get_connection() as conn:
@@ -203,27 +238,6 @@ class User:
 
         except Exception as ex:
             raise ex
-
-    # GET BY EMAIL
-    @staticmethod
-    def get_by_email(email):
-        try:
-            with SQLServerConnection.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT id, name, lastname, phone_number, email, password_hash, role, status, created_at
-                    FROM Users
-                    WHERE email = ?
-                """, email)
-
-                row = cursor.fetchone()
-                if row:
-                    return User(*row)
-
-        except Exception as ex:
-            print("error fetching user by email...", ex)
-
-        return None
 
     # PASSWORD CHECK
     def check_password(self, plain_password):
