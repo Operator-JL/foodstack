@@ -6,7 +6,8 @@ from ..Security.Auth import require_auth
 
 product_ingredient_bp = Blueprint('product_ingredient_bp', __name__)
 
-#GET
+# GET ALL
+# -------------------------
 @product_ingredient_bp.route('/product-ingredients', methods=['GET'])
 def get_all_product_ingredients():
     try:
@@ -20,14 +21,14 @@ def get_all_product_ingredients():
             "errorMessage": str(e)
         })
 
-#GET by id
+# GET BY ID
+# -------------------------
 @product_ingredient_bp.route('/product-ingredient/<int:id>', methods=['GET'])
 def get_product_ingredient_by_id(id):
     try:
-        pi = ProductIngredient(id)
         return jsonify({
             "status": 0,
-            "data": json.loads(pi.to_json())
+            "data": ProductIngredient.get_by_id(id)
         })
     except Exception as e:
         return jsonify({
@@ -35,7 +36,25 @@ def get_product_ingredient_by_id(id):
             "errorMessage": str(e)
         })
 
-#POST
+# GET BY PRODUCT ID
+# -------------------------
+@product_ingredient_bp.route('/product-ingredients/product/<int:product_id>', methods=['GET'])
+def get_product_ingredients_by_product_id(product_id):
+    try:
+        from backend.Infrastructure.SQLServerConnection import SQLServerConnection
+        with SQLServerConnection.get_connection() as conn:
+            return jsonify({
+                "status": 0,
+                "data": ProductIngredient.get_by_product_id(product_id, conn)
+            })
+    except Exception as e:
+        return jsonify({
+            "status": 1,
+            "errorMessage": str(e)
+        })
+
+# POST
+# -------------------------
 @product_ingredient_bp.route('/product-ingredient', methods=['POST'])
 def create_product_ingredient():
     try:
@@ -48,11 +67,38 @@ def create_product_ingredient():
         pi.default_ingredients = data.get("default_ingredients", 0)
         pi.status = data.get("status", 1)
 
-        pi.add()
+        new_id = pi.add()
 
         return jsonify({
             "status": 0,
-            "message": "Product ingredient created successfully"
+            "message": "Product ingredient created successfully",
+            "id": new_id
+        })
+    except Exception as e:
+        return jsonify({
+            "status": 1,
+            "errorMessage": str(e)
+        })
+
+# PUT
+# -------------------------
+@product_ingredient_bp.route('/product-ingredient/<int:id>', methods=['PUT'])
+def update_product_ingredient(id):
+    try:
+        data = request.get_json()
+        pi = ProductIngredient(id)
+
+        pi.product_id = data.get("product_id", pi.product_id)
+        pi.ingredient_id = data.get("ingredient_id", pi.ingredient_id)
+        pi.max_ingredients = data.get("max_ingredients", pi.max_ingredients)
+        pi.default_ingredients = data.get("default_ingredients", pi.default_ingredients)
+        pi.status = data.get("status", pi.status)
+
+        pi.update()
+
+        return jsonify({
+            "status": 0,
+            "message": "Product ingredient updated successfully"
         })
     except Exception as e:
         return jsonify({

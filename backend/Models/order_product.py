@@ -6,7 +6,9 @@ from .product import Product
 class RecordNotFoundException(Exception):
     pass
 
-
+# -------------------------
+# ATTRIBUTES
+# -------------------------
 class OrderProduct:
     def __init__(self, *args):
         self._id = 0
@@ -17,7 +19,7 @@ class OrderProduct:
         self._status = 1
         self._created_at = None
 
-        # constructors
+        # Constructors
         if len(args) == 1:
             self.load_by_id(args[0])
         elif len(args) == 7:
@@ -91,7 +93,10 @@ class OrderProduct:
         self._created_at = value
 
     # -------------------------
-    # GET BY ID
+    # METHODS
+    # -------------------------
+
+    # LOAD BY ID
     # -------------------------
     def load_by_id(self, id):
         try:
@@ -120,7 +125,38 @@ class OrderProduct:
         except Exception as e:
             raise e
 
+    # GET BY ID
     # -------------------------
+    @staticmethod
+    def get_by_id(id, conn=None):
+        try:
+            op = OrderProduct()
+            op.load_by_id(id)
+
+            product = Product(op.product_id)
+
+            with SQLServerConnection.get_connection() as c:
+                ingredients = OrderProductIngredient.get_by_order_product_id(op.id, c)
+
+            return {
+                "id": op.id,
+                "order_id": op.order_id,
+                "product_id": op.product_id,
+                "quantity": op.quantity,
+                "price": float(op.price),
+                "status": op.status,
+                "created_at": op.created_at.isoformat() if op.created_at else None,
+
+                # 🔥 Nested product
+                "product": product.to_dict(),
+
+                # 🔥 Nested ingredients
+                "ingredients": ingredients
+            }
+
+        except Exception as ex:
+            raise ex
+
     # GET BY ORDER ID (FULL DATA)
     # -------------------------
     @staticmethod
@@ -137,10 +173,8 @@ class OrderProduct:
             for row in cursor.fetchall():
                 op = OrderProduct(*row)
 
-                # 🔥 Product details
                 product = Product(op.product_id)
 
-                # 🔥 Ingredients (with ingredient details)
                 ingredients = OrderProductIngredient.get_by_order_product_id(op.id, conn)
 
                 result.append({
@@ -152,10 +186,8 @@ class OrderProduct:
                     "status": op.status,
                     "created_at": op.created_at.isoformat() if op.created_at else None,
 
-                    # 🔥 Nested product
                     "product": product.to_dict(),
 
-                    # 🔥 Nested ingredients
                     "ingredients": ingredients
                 })
 
@@ -164,7 +196,6 @@ class OrderProduct:
 
         return result
 
-    # -------------------------
     # GET ALL
     # -------------------------
     @staticmethod
@@ -187,7 +218,6 @@ class OrderProduct:
 
         return result
 
-    # -------------------------
     # TO JSON
     # -------------------------
     def to_json(self):
@@ -201,8 +231,7 @@ class OrderProduct:
             "created_at": self._created_at.isoformat() if self._created_at else None
         })
 
-    # -------------------------
-    # INSERT
+    # ADD
     # -------------------------
     def add(self):
         try:
@@ -210,6 +239,7 @@ class OrderProduct:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO Order_Products (Order_Id, Product_Id, Quantity, Price, Status)
+                    OUTPUT INSERTED.Id
                     VALUES (?, ?, ?, ?, ?)
                 """, (
                     self._order_id,
@@ -218,6 +248,37 @@ class OrderProduct:
                     self._price,
                     self._status
                 ))
+
+                self._id = cursor.fetchone()[0]
+                conn.commit()
+
+                return self._id
+
+        except Exception as ex:
+            raise ex
+
+    # UPDATE
+    # -------------------------
+    def update(self):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE Order_Products
+                    SET Order_Id = ?, Product_Id = ?, Quantity = ?, Price = ?, Status = ?
+                    WHERE Id = ?
+                """, (
+                    self._order_id,
+                    self._product_id,
+                    self._quantity,
+                    self._price,
+                    self._status,
+                    self._id
+                ))
+
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundException(f"OrderProduct with id {self._id} was not found.")
+
                 conn.commit()
 
         except Exception as ex:

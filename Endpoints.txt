@@ -57,6 +57,8 @@ get-all
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/orders
 get by id
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/orders/1
+POST
+PUT
 
 
 Order-Products 
@@ -64,6 +66,8 @@ get-all
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-products
 get by id
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-product/1
+PUT
+POST
 
 
 Order-Product-Ingredients 
@@ -71,6 +75,8 @@ get-all
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-product-ingredients
 get by id
 https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-product-ingredient/1
+PUT
+POST
 
 
 
