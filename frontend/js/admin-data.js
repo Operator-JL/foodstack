@@ -24,6 +24,11 @@
     return normalized !== '0' && normalized !== 'false' && normalized !== 'inactive';
   }
 
+  function normalizeOrderStatus(value) {
+    const status = normalizeText(value).toLowerCase();
+    return status || 'pending';
+  }
+
   function parseDateSafe(value) {
     if (!value) {
       return null;
@@ -43,12 +48,16 @@
   }
 
   function saveSession(user) {
+    const runtime = window.FOODSTACK_RUNTIME || {};
     const payload = {
       user: user,
       signedAt: new Date().toISOString()
     };
 
     window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(payload));
+    if (typeof runtime.setDemoMode === 'function') {
+      runtime.setDemoMode(false);
+    }
   }
 
   function readSession() {
@@ -68,6 +77,10 @@
 
   function clearSession() {
     window.localStorage.removeItem(ADMIN_SESSION_KEY);
+    const runtime = window.FOODSTACK_RUNTIME || {};
+    if (typeof runtime.clearAuthToken === 'function') {
+      runtime.clearAuthToken();
+    }
   }
 
   function userDisplayName(user) {
@@ -144,9 +157,18 @@
       displayId: normalizedId ? `ORD-${normalizedId}` : 'ORD-UNKNOWN',
       userId: normalizeText(item && item.user_id),
       total: normalizeNumber(item && item.total),
-      status: normalizeText(item && item.status).toLowerCase() || 'pending',
+      status: normalizeOrderStatus(item && item.status),
       createdAt: toIsoSafe(item && (item.datetime || item.created_at)),
       raw: item
+    };
+  }
+
+  function normalizeStaffUser(item) {
+    return {
+      id: normalizeText(item && item.id),
+      name: userDisplayName(item),
+      role: normalizeText(item && item.role).toLowerCase(),
+      email: normalizeText(item && item.email)
     };
   }
 
@@ -798,19 +820,60 @@
         };
       }
 
+      const normalizedStaff = normalizeStaffUser(user);
+      saveSession(normalizedStaff);
+
       return {
         ok: true,
-        user: {
-          id: normalizeText(user.id),
-          name: userDisplayName(user),
-          role: normalizeText(user.role),
-          email: normalizeText(user.email)
-        }
+        user: normalizedStaff
       };
     } catch (error) {
       return {
         ok: false,
         message: error instanceof Error ? error.message : 'Unable to sign in.'
+      };
+    }
+  }
+
+  async function verifyStaffSession() {
+    const api = window.FOODSTACK_API;
+    if (!api || typeof api.getSession !== 'function') {
+      clearSession();
+      return {
+        ok: false,
+        message: 'Session API is not available.'
+      };
+    }
+
+    try {
+      const user = await api.getSession();
+      if (!user || typeof user !== 'object') {
+        clearSession();
+        return {
+          ok: false,
+          message: 'Session did not return user data.'
+        };
+      }
+
+      if (!roleIsStaff(user.role)) {
+        clearSession();
+        return {
+          ok: false,
+          message: 'This account does not have staff access.'
+        };
+      }
+
+      const normalizedStaff = normalizeStaffUser(user);
+      saveSession(normalizedStaff);
+      return {
+        ok: true,
+        user: normalizedStaff
+      };
+    } catch (error) {
+      clearSession();
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Session validation failed.'
       };
     }
   }
@@ -841,9 +904,50 @@
         canReadOrderProducts: Boolean(
           base.endpointStatus && base.endpointStatus.orderProducts
         ),
-        canUpdateOrderStatus: false
+        canUpdateOrderStatus: Boolean(
+          window.FOODSTACK_API &&
+            typeof window.FOODSTACK_API.updateOrder === 'function' &&
+            base.endpointStatus &&
+            base.endpointStatus.orders
+        )
       }
     };
+  }
+
+  async function updateOrderStatus(orderId, status) {
+    const api = window.FOODSTACK_API;
+    const normalizedOrderId = normalizeText(orderId);
+    const normalizedStatus = normalizeOrderStatus(status);
+
+    if (!api || typeof api.updateOrder !== 'function') {
+      return {
+        ok: false,
+        message: 'Order status endpoint is not available.'
+      };
+    }
+
+    if (!normalizedOrderId) {
+      return {
+        ok: false,
+        message: 'Order id is required to update status.'
+      };
+    }
+
+    try {
+      await api.updateOrder(normalizedOrderId, {
+        status: normalizedStatus
+      });
+
+      return {
+        ok: true,
+        status: normalizedStatus
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Could not update order status.'
+      };
+    }
   }
 
   async function loadStaffHomeSnapshot() {
@@ -884,10 +988,12 @@
 
   window.FOODSTACK_ADMIN_API = {
     authenticateStaff: authenticateStaff,
+    verifyStaffSession: verifyStaffSession,
     saveSession: saveSession,
     readSession: readSession,
     clearSession: clearSession,
     loadDashboardSnapshot: loadDashboardSnapshot,
-    loadStaffHomeSnapshot: loadStaffHomeSnapshot
+    loadStaffHomeSnapshot: loadStaffHomeSnapshot,
+    updateOrderStatus: updateOrderStatus
   };
 })();

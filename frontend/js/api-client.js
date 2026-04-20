@@ -1,20 +1,95 @@
 (function () {
-  const BASE_URL =
-    'https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api';
-  const RUNTIME_OVERRIDE = window.FOODSTACK_RUNTIME_OVERRIDES || {};
-  const RUNTIME_CONFIG = {
-    DEV_FALLBACK_MODE:
-      Object.hasOwn(RUNTIME_OVERRIDE, 'DEV_FALLBACK_MODE')
-        ? Boolean(RUNTIME_OVERRIDE.DEV_FALLBACK_MODE)
-        : true,
-    ALLOW_DEMO_AUTH:
-      Object.hasOwn(RUNTIME_OVERRIDE, 'ALLOW_DEMO_AUTH')
-        ? Boolean(RUNTIME_OVERRIDE.ALLOW_DEMO_AUTH)
-        : true,
-    REQUEST_CREDENTIALS: Object.hasOwn(RUNTIME_OVERRIDE, 'REQUEST_CREDENTIALS')
-      ? String(RUNTIME_OVERRIDE.REQUEST_CREDENTIALS || 'omit')
-      : 'omit'
-  };
+  const AUTH_TOKEN_KEY = 'foodstack-auth-token';
+  const API_BASE_STORAGE_KEY = 'foodstack-api-base-url';
+  const DEMO_MODE_STORAGE_KEY = 'foodstack-demo-mode';
+
+  function normalizeText(value) {
+    return String(value || '').trim();
+  }
+
+  function normalizeBoolean(value, fallback) {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    const text = normalizeText(value).toLowerCase();
+    if (!text) {
+      return Boolean(fallback);
+    }
+
+    if (['1', 'true', 'yes', 'on'].includes(text)) {
+      return true;
+    }
+
+    if (['0', 'false', 'no', 'off'].includes(text)) {
+      return false;
+    }
+
+    return Boolean(fallback);
+  }
+
+  function normalizeCredentials(value, fallback) {
+    const allowed = ['omit', 'same-origin', 'include'];
+    const candidate = normalizeText(value || fallback || 'same-origin').toLowerCase();
+    return allowed.includes(candidate) ? candidate : 'same-origin';
+  }
+
+  function normalizeBaseUrl(value) {
+    const text = normalizeText(value);
+    if (!text) {
+      return '';
+    }
+    return text.replace(/\/+$/, '');
+  }
+
+  function parseDemoModeFromUrl() {
+    const params = new URLSearchParams(window.location.search || '');
+    const flag = params.get('demo');
+    if (flag == null) {
+      return null;
+    }
+
+    const enabled = normalizeBoolean(flag, false);
+    window.localStorage.setItem(DEMO_MODE_STORAGE_KEY, enabled ? '1' : '0');
+    return enabled;
+  }
+
+  function readStoredDemoMode() {
+    const fromUrl = parseDemoModeFromUrl();
+    if (typeof fromUrl === 'boolean') {
+      return fromUrl;
+    }
+
+    return normalizeBoolean(window.localStorage.getItem(DEMO_MODE_STORAGE_KEY), false);
+  }
+
+  function resolveApiBaseUrl(runtimeOverride) {
+    const overrideBase = normalizeBaseUrl(runtimeOverride.API_BASE_URL);
+    if (overrideBase) {
+      return overrideBase;
+    }
+
+    const storedBase = normalizeBaseUrl(window.localStorage.getItem(API_BASE_STORAGE_KEY));
+    if (storedBase) {
+      return storedBase;
+    }
+
+    const protocol = normalizeText(window.location.protocol).toLowerCase();
+    const hostname = normalizeText(window.location.hostname).toLowerCase();
+    const port = normalizeText(window.location.port);
+    const origin = normalizeText(window.location.origin);
+
+    if (!origin || protocol === 'file:') {
+      return 'http://127.0.0.1:5000/api';
+    }
+
+    const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
+    if (isLocalHost && port && port !== '5000') {
+      return 'http://127.0.0.1:5000/api';
+    }
+
+    return `${origin}/api`;
+  }
 
   function joinUrl(base, path) {
     const safeBase = String(base || '').replace(/\/+$/, '');
@@ -27,18 +102,33 @@
       if (payload.errorMessage) {
         return String(payload.errorMessage);
       }
-
       if (payload.message) {
         return String(payload.message);
       }
     }
-
     return fallback;
+  }
+
+  function readAuthToken() {
+    return normalizeText(window.localStorage.getItem(AUTH_TOKEN_KEY));
+  }
+
+  function saveAuthToken(token) {
+    const normalized = normalizeText(token);
+    if (!normalized) {
+      window.localStorage.removeItem(AUTH_TOKEN_KEY);
+      return '';
+    }
+    window.localStorage.setItem(AUTH_TOKEN_KEY, normalized);
+    return normalized;
+  }
+
+  function clearAuthToken() {
+    window.localStorage.removeItem(AUTH_TOKEN_KEY);
   }
 
   async function parseJsonSafe(response) {
     const text = await response.text();
-
     if (!text) {
       return null;
     }
@@ -50,10 +140,27 @@
     }
   }
 
+  const RUNTIME_OVERRIDE = window.FOODSTACK_RUNTIME_OVERRIDES || {};
+  const DEMO_MODE = readStoredDemoMode();
+
+  const RUNTIME_CONFIG = {
+    API_BASE_URL: resolveApiBaseUrl(RUNTIME_OVERRIDE),
+    DEV_FALLBACK_MODE: Object.hasOwn(RUNTIME_OVERRIDE, 'DEV_FALLBACK_MODE')
+      ? normalizeBoolean(RUNTIME_OVERRIDE.DEV_FALLBACK_MODE, false)
+      : DEMO_MODE,
+    ALLOW_DEMO_AUTH: Object.hasOwn(RUNTIME_OVERRIDE, 'ALLOW_DEMO_AUTH')
+      ? normalizeBoolean(RUNTIME_OVERRIDE.ALLOW_DEMO_AUTH, false)
+      : DEMO_MODE,
+    REQUEST_CREDENTIALS: normalizeCredentials(
+      RUNTIME_OVERRIDE.REQUEST_CREDENTIALS,
+      'same-origin'
+    )
+  };
+
   async function request(path, options) {
     const config = options || {};
-    const method = String(config.method || 'GET').toUpperCase();
-    const url = joinUrl(BASE_URL, path);
+    const method = normalizeText(config.method || 'GET').toUpperCase();
+    const url = joinUrl(RUNTIME_CONFIG.API_BASE_URL, path);
     const headers = {
       Accept: 'application/json',
       ...(config.headers || {})
@@ -63,14 +170,19 @@
       headers['Content-Type'] = 'application/json';
     }
 
-    const requestCredentials = ['omit', 'same-origin', 'include'].includes(
-      String(config.credentials || RUNTIME_CONFIG.REQUEST_CREDENTIALS || 'omit')
-    )
-      ? String(config.credentials || RUNTIME_CONFIG.REQUEST_CREDENTIALS || 'omit')
-      : 'omit';
+    const requestCredentials = normalizeCredentials(
+      config.credentials,
+      RUNTIME_CONFIG.REQUEST_CREDENTIALS
+    );
+
+    if (config.auth !== false) {
+      const token = readAuthToken();
+      if (token && !headers.Authorization) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    }
 
     let response;
-
     try {
       response = await fetch(url, {
         method: method,
@@ -79,9 +191,7 @@
         body: config.body != null ? JSON.stringify(config.body) : undefined
       });
     } catch (error) {
-      const networkError = new Error(
-        'API is unreachable (network/CORS/offline).'
-      );
+      const networkError = new Error('API is unreachable (network/CORS/offline).');
       networkError.code = 'NETWORK_ERROR';
       throw networkError;
     }
@@ -106,30 +216,20 @@
         apiError.apiStatus = Number(payload.status);
         throw apiError;
       }
-
       return Object.hasOwn(payload, 'data') ? payload.data : payload;
     }
 
     return payload;
   }
 
-  async function requestFirst(paths, options) {
-    const attempts = Array.isArray(paths) ? paths : [paths];
-    let lastError = null;
-
-    for (const path of attempts) {
-      try {
-        return await request(path, options);
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    throw lastError || new Error('No API route was available for this request.');
-  }
-
   function runtimeEnabled(flagName) {
     return Boolean(RUNTIME_CONFIG[flagName]);
+  }
+
+  function setDemoMode(enabled) {
+    const value = normalizeBoolean(enabled, false);
+    window.localStorage.setItem(DEMO_MODE_STORAGE_KEY, value ? '1' : '0');
+    return value;
   }
 
   function startDemoCustomerSession(overrides) {
@@ -145,6 +245,8 @@
     window.localStorage.setItem('foodstack-user', JSON.stringify(payload));
     window.localStorage.setItem('user', JSON.stringify(payload));
     window.localStorage.removeItem('foodstack-admin-session');
+    clearAuthToken();
+    setDemoMode(true);
     return payload;
   }
 
@@ -165,7 +267,8 @@
         isDemo: true
       })
     );
-
+    clearAuthToken();
+    setDemoMode(true);
     return user;
   }
 
@@ -175,76 +278,93 @@
       return request('/users');
     },
     getUserById(userId) {
-      return requestFirst([`/users/${userId}`, `/user/${userId}`]);
+      return request(`/users/${userId}`);
     },
     createUser(payload) {
-      return request('/user', { method: 'POST', body: payload });
+      return request('/users', { method: 'POST', body: payload });
     },
     updateUser(userId, payload) {
-      return request(`/user/${userId}`, { method: 'PUT', body: payload });
+      return request(`/users/${userId}`, { method: 'PUT', body: payload });
     },
-    login(payload) {
-      return request('/login', { method: 'POST', body: payload });
+    async login(payload) {
+      const response = await request('/login', { method: 'POST', body: payload, auth: false });
+      if (response && typeof response === 'object' && response.token) {
+        saveAuthToken(response.token);
+      }
+      return response;
+    },
+    async logout() {
+      try {
+        await request('/logout', { method: 'POST' });
+      } finally {
+        clearAuthToken();
+      }
+    },
+    getSession() {
+      return request('/session');
     },
     getCategories() {
       return request('/categories');
     },
     getCategoryById(categoryId) {
-      return requestFirst([`/categories/${categoryId}`, `/category/${categoryId}`]);
+      return request(`/categories/${categoryId}`);
     },
     getProducts() {
       return request('/products');
     },
     getProductById(productId) {
-      return requestFirst([`/products/${productId}`, `/product/${productId}`]);
+      return request(`/products/${productId}`);
     },
     createProduct(payload) {
-      return request('/product', { method: 'POST', body: payload });
+      return request('/products', { method: 'POST', body: payload });
     },
     getIngredients() {
       return request('/ingredients');
     },
     getIngredientById(ingredientId) {
-      return requestFirst([`/ingredients/${ingredientId}`, `/ingredient/${ingredientId}`]);
+      return request(`/ingredients/${ingredientId}`);
     },
     getProductIngredients() {
       return request('/product-ingredients');
     },
     getProductIngredientById(recordId) {
-      return requestFirst([
-        `/product-ingredients/${recordId}`,
-        `/product-ingredient/${recordId}`
-      ]);
+      return request(`/product-ingredients/${recordId}`);
     },
     getOrders() {
       return request('/orders');
     },
+    getOrdersByUser(userId) {
+      return request(`/orders/user/${userId}`);
+    },
     getOrderById(orderId) {
-      return requestFirst([`/orders/${orderId}`, `/order/${orderId}`]);
+      return request(`/orders/${orderId}`);
+    },
+    updateOrder(orderId, payload) {
+      return request(`/orders/${orderId}`, { method: 'PUT', body: payload });
     },
     createOrder(payload) {
-      return request('/order', { method: 'POST', body: payload });
+      return request('/orders', { method: 'POST', body: payload });
     },
     getOrderProducts() {
       return request('/order-products');
     },
+    getOrderProductsByOrder(orderId) {
+      return request(`/order-products/order/${orderId}`);
+    },
     getOrderProductById(recordId) {
-      return requestFirst([`/order-products/${recordId}`, `/order-product/${recordId}`]);
+      return request(`/order-products/${recordId}`);
     },
     createOrderProduct(payload) {
-      return request('/order-product', { method: 'POST', body: payload });
+      return request('/order-products', { method: 'POST', body: payload });
     },
     createOrderProductIngredient(payload) {
-      return request('/order-product-ingredient', { method: 'POST', body: payload });
+      return request('/order-product-ingredients', { method: 'POST', body: payload });
     },
     getOrderProductIngredients() {
       return request('/order-product-ingredients');
     },
     getOrderProductIngredientById(recordId) {
-      return requestFirst([
-        `/order-product-ingredients/${recordId}`,
-        `/order-product-ingredient/${recordId}`
-      ]);
+      return request(`/order-product-ingredients/${recordId}`);
     }
   };
 
@@ -252,7 +372,11 @@
   window.FOODSTACK_RUNTIME = {
     ...RUNTIME_CONFIG,
     isEnabled: runtimeEnabled,
+    setDemoMode: setDemoMode,
     startDemoCustomerSession: startDemoCustomerSession,
-    startDemoStaffSession: startDemoStaffSession
+    startDemoStaffSession: startDemoStaffSession,
+    readAuthToken: readAuthToken,
+    clearAuthToken: clearAuthToken,
+    saveAuthToken: saveAuthToken
   };
 })();

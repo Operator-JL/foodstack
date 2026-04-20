@@ -1,91 +1,83 @@
-import jwt
 import datetime
+import os
 from functools import wraps
-from flask import request,jsonify, redirect, url_for
+
+import jwt
+from flask import jsonify, request
 from jwt import ExpiredSignatureError, InvalidTokenError
 
-SECRET_KEY = "9876543210"
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "9876543210")
+TOKEN_DURATION_MINUTES = 60 * 10
 
-def generate_token(user_id):
+
+def generate_token(user_id, role):
     payload = {
         "user_id": user_id,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=20),
+        "role": role,
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(minutes=TOKEN_DURATION_MINUTES),
         "iat": datetime.datetime.utcnow()
     }
-
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
-# DECODE token
+
 def decode_token(token):
     return jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
 
 
-# middleware require_auth
+def _read_bearer_token():
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header:
+        return None
+
+    if not auth_header.lower().startswith("bearer "):
+        return None
+
+    token = auth_header[7:].strip()
+    return token or None
+
+
+def _read_auth_token():
+    header_token = _read_bearer_token()
+    if header_token:
+        return header_token
+
+    cookie_token = request.cookies.get("auth_token")
+    return cookie_token or None
+
+
 def require_auth(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        # Receive token from request
-        token = request.cookies.get("auth_token")
+        token = _read_auth_token()
 
         if not token:
             return jsonify({
-                'status' : 1,
-                'errorMessage': "Not authenticated"
+                "status": 1,
+                "errorMessage": "Not authenticated"
             }), 401
-            #return redirect(url_for("home"))
-        
-        try: #success
+
+        try:
             decoded = decode_token(token)
-            #Save user_id in request
             request.user_id = decoded.get("user_id")
-            #return redirect(url_for("dashboard"))
+            request.user_role = str(decoded.get("role") or "").lower()
+
+            if not request.user_id:
+                return jsonify({
+                    "status": 1,
+                    "errorMessage": "Invalid Session"
+                }), 401
 
         except ExpiredSignatureError:
             return jsonify({
-                "status" : 1,
-                "errorMessage" : "Session Expired"
+                "status": 1,
+                "errorMessage": "Session Expired"
             }), 401
-            #return redirect(url_for("home"))
-
         except InvalidTokenError:
             return jsonify({
                 "status": 1,
                 "errorMessage": "Invalid Session"
             }), 401
-        
-        return f(*args, **kwargs)
-    
-    return wrapper
-
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        # receive token
-        token = request.headers.get("Authorization")
-
-        if not token:
-            return jsonify({
-                "status": 1,
-                "errorMessage": "Token Missing"
-            }), 401
-
-        # remove "bearer" prefix
-        token = token.replace("Bearer ", "").strip()
-
-        try:
-            decoded = decode_token(token)
-            # save user_id in request
-            request.user_id = decoded.get("user_id")
-        except ExpiredSignatureError:
-            return jsonify({
-                "status": 1,
-                "errorMessage": "Token Expired"
-            }), 401
-        except InvalidTokenError:
-            return jsonify({
-                "status": 1,
-                "errorMessage": "Invalid Token"
-            }), 401
-        except Exception as e:
+        except Exception:
             return jsonify({
                 "status": 1,
                 "errorMessage": "Authentication error"
@@ -94,3 +86,22 @@ def require_auth(f):
         return f(*args, **kwargs)
 
     return wrapper
+
+
+def require_roles(*allowed_roles):
+    normalized_roles = {str(role).strip().lower() for role in allowed_roles if str(role).strip()}
+
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            current_role = str(getattr(request, "user_role", "") or "").lower()
+            if current_role not in normalized_roles:
+                return jsonify({
+                    "status": 1,
+                    "errorMessage": "Forbidden"
+                }), 403
+            return f(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

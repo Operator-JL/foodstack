@@ -246,6 +246,50 @@ class User:
             self._password.encode("utf-8")
         )
 
+    # UPDATE
+    # -------------------------
+    def update(self):
+        if not self._id:
+            raise ValueError("User id is required for update.")
+
+        required_fields = {
+            "name": self._name,
+            "lastname": self._lastname,
+            "phoneNumber": self._phoneNumber,
+            "email": self._email,
+            "role": self._role
+        }
+
+        missing = [key for key, value in required_fields.items() if not str(value or "").strip()]
+        if missing:
+            raise ValueError(f"Missing required field(s): {', '.join(missing)}.")
+
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE Users
+                    SET name = ?, lastname = ?, phone_number = ?, email = ?, password_hash = ?, role = ?, status = ?
+                    WHERE id = ?
+                """, (
+                    self._name,
+                    self._lastname,
+                    self._phoneNumber,
+                    self._email,
+                    self._password,
+                    self._role,
+                    self._status,
+                    self._id
+                ))
+
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundException(f"User with id {self._id} was not found.")
+
+                conn.commit()
+
+        except Exception as ex:
+            raise ex
+
     # TO JSON
     def to_json(self):
         return json.dumps({

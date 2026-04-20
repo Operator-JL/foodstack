@@ -5,12 +5,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  const sessionUser = api.readSession();
+  const sessionResult =
+    typeof api.verifyStaffSession === 'function'
+      ? await api.verifyStaffSession()
+      : { ok: false };
 
-  if (!sessionUser) {
+  if (!sessionResult || !sessionResult.ok || !sessionResult.user) {
     window.location.href = 'admin-login.html';
     return;
   }
+
+  const sessionUser = sessionResult.user;
 
   const heroTitle = document.getElementById('staff-hero-title');
   const statsGrid = document.getElementById('staff-stats-grid');

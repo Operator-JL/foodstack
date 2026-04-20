@@ -57,6 +57,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  function normalizePositiveId(value) {
+    const text = normalizeText(value);
+    const parsed = Number(text);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    return String(Math.trunc(parsed));
+  }
+
   function setProceedState(loading, label) {
     if (!proceedButton) {
       return;
@@ -334,7 +345,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               <p class="order-history-item__id">${orderRef}</p>
               <strong>${total}</strong>
             </div>
-            <p class="order-history-item__meta">${createdAt} · ${status} · source: ${source}</p>
+            <p class="order-history-item__meta">${createdAt} - ${status} - source: ${source}</p>
             <p class="order-history-item__details">Items: <code>${itemCount}</code> ${details}</p>
           </article>
         `;
@@ -375,33 +386,81 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    let warning = '';
+    const warningParts = [];
     let apiHistory = [];
 
     try {
-      const [ordersRaw, orderProductsRaw] = await Promise.all([
-        api.getOrders(),
-        api.getOrderProducts()
-      ]);
+      let orders = [];
+      let sourceLabel = 'api';
 
-      const orders = Array.isArray(ordersRaw) ? ordersRaw : [];
-      const orderProducts = Array.isArray(orderProductsRaw) ? orderProductsRaw : [];
+      try {
+        const userOrdersRaw = await api.getOrdersByUser(userId);
+        orders = Array.isArray(userOrdersRaw) ? userOrdersRaw : [];
+      } catch (userOrdersError) {
+        sourceLabel = 'api-fallback';
+        warningParts.push(
+          userOrdersError instanceof Error
+            ? `User orders endpoint failed (${userOrdersError.message}).`
+            : 'User orders endpoint failed.'
+        );
+
+        const allOrdersRaw = await api.getOrders();
+        const allOrders = Array.isArray(allOrdersRaw) ? allOrdersRaw : [];
+        orders = allOrders.filter((order) => normalizeText(order && order.user_id) === userId);
+      }
+
       const groupedItems = new Map();
 
-      orderProducts.forEach((row) => {
-        const orderId = normalizeText(row && row.order_id);
-        const quantity = Math.max(0, Math.floor(normalizeNumber(row && row.quantity)));
+      orders.forEach((order) => {
+        const orderId = normalizeText(order && order.id);
+        const nestedOrderProducts =
+          (order && (order.order_products || order.orderProducts)) || [];
+        const nestedItems = Array.isArray(nestedOrderProducts)
+          ? nestedOrderProducts
+          : [];
+        const nestedCount = nestedItems.reduce((sum, row) => {
+          const quantity = Math.max(
+            0,
+            Math.floor(normalizeNumber(row && (row.quantity || row.qty)))
+          );
+          return sum + quantity;
+        }, 0);
 
-        if (!orderId) {
-          return;
+        if (orderId && nestedCount > 0) {
+          groupedItems.set(orderId, nestedCount);
         }
-
-        const current = groupedItems.get(orderId) || 0;
-        groupedItems.set(orderId, current + quantity);
       });
 
+      const missingOrderIds = orders
+        .map((order) => normalizeText(order && order.id))
+        .filter((orderId) => orderId && !groupedItems.has(orderId));
+
+      if (missingOrderIds.length) {
+        try {
+          const orderProductsRaw = await api.getOrderProducts();
+          const orderProducts = Array.isArray(orderProductsRaw) ? orderProductsRaw : [];
+
+          orderProducts.forEach((row) => {
+            const orderId = normalizeText(row && row.order_id);
+            const quantity = Math.max(0, Math.floor(normalizeNumber(row && row.quantity)));
+
+            if (!orderId || !missingOrderIds.includes(orderId)) {
+              return;
+            }
+
+            const current = groupedItems.get(orderId) || 0;
+            groupedItems.set(orderId, current + quantity);
+          });
+        } catch (orderProductsError) {
+          warningParts.push(
+            orderProductsError instanceof Error
+              ? `Order line items endpoint failed (${orderProductsError.message}).`
+              : 'Order line items endpoint failed.'
+          );
+        }
+      }
+
       apiHistory = orders
-        .filter((order) => normalizeText(order && order.user_id) === userId)
         .map((order) => {
           const orderId = normalizeText(order && order.id);
           const createdAt = order && (order.datetime || order.created_at);
@@ -414,15 +473,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             total: normalizeNumber(order && order.total),
             itemCount: groupedItems.get(orderId) || 0,
             createdAt: createdAt,
-            source: 'api',
+            source: sourceLabel,
             details: ''
           };
         });
     } catch (error) {
-      warning =
+      warningParts.push(
         error instanceof Error
           ? `Could not load live order history: ${error.message}`
-          : 'Could not load live order history.';
+          : 'Could not load live order history.'
+      );
     }
 
     const combined = apiHistory
@@ -433,7 +493,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return bTime - aTime;
       });
 
-    renderOrderHistory(combined, warning);
+    renderOrderHistory(combined, warningParts.join(' '));
   }
 
   async function resolveCreatedOrderId(userId, total) {
@@ -457,24 +517,84 @@ document.addEventListener('DOMContentLoaded', async () => {
     return matches.length ? normalizeText(matches[0].id) : null;
   }
 
+  function extractCreatedOrderId(responsePayload) {
+    const directCandidate = normalizePositiveId(responsePayload);
+
+    if (directCandidate) {
+      return directCandidate;
+    }
+
+    if (!responsePayload || typeof responsePayload !== 'object') {
+      return null;
+    }
+
+    const layers = [responsePayload, responsePayload.data, responsePayload.order];
+    const keys = ['id', 'order_id', 'orderId'];
+
+    for (const layer of layers) {
+      if (!layer || typeof layer !== 'object') {
+        continue;
+      }
+
+      for (const key of keys) {
+        const candidate = normalizePositiveId(layer[key]);
+
+        if (candidate) {
+          return candidate;
+        }
+      }
+    }
+
+    return null;
+  }
+
   async function createOrderLines(orderId, items) {
     const outcomes = [];
+    const parsedOrderId = Number(orderId);
+
+    if (!Number.isFinite(parsedOrderId) || parsedOrderId <= 0) {
+      return items.map((item) => ({
+        ok: false,
+        itemId: item.id,
+        itemName: item.name,
+        error: 'Order id is invalid for line-item persistence.'
+      }));
+    }
 
     for (const item of items) {
+      const productId = Number(item.id);
+      const quantity = Math.max(1, Math.floor(normalizeNumber(item.qty)));
+      const price = normalizeNumber(item.price);
+
+      if (!Number.isFinite(productId) || productId <= 0) {
+        outcomes.push({
+          ok: false,
+          itemId: item.id,
+          itemName: item.name,
+          error: 'Product id is invalid.'
+        });
+        continue;
+      }
+
       try {
         await api.createOrderProduct({
-          order_id: Number(orderId),
-          product_id: Number(item.id),
-          quantity: Number(item.qty),
-          price: Number(item.price),
+          order_id: parsedOrderId,
+          product_id: productId,
+          quantity: quantity,
+          price: price,
           status: 1
         });
 
-        outcomes.push({ ok: true, itemId: item.id });
+        outcomes.push({
+          ok: true,
+          itemId: item.id,
+          itemName: item.name
+        });
       } catch (error) {
         outcomes.push({
           ok: false,
           itemId: item.id,
+          itemName: item.name,
           error: error instanceof Error ? error.message : 'Unknown error'
         });
       }
@@ -491,7 +611,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return items
       .slice(0, 3)
       .map((item) => `${item.name} x${item.qty}`)
-      .join(' · ');
+      .join(' - ');
   }
 
   async function submitOrder() {
@@ -537,31 +657,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     try {
-      await api.createOrder({
+      const createdOrderPayload = await api.createOrder({
         user_id: userId,
         total: Number(lastSummary.total.toFixed(2)),
         status: 'pending'
       });
 
-      let orderId = null;
+      let orderId = extractCreatedOrderId(createdOrderPayload);
 
-      try {
-        orderId = await resolveCreatedOrderId(userId, Number(lastSummary.total.toFixed(2)));
-      } catch (resolveError) {
-        orderId = null;
+      if (!orderId) {
+        try {
+          orderId = await resolveCreatedOrderId(
+            userId,
+            Number(lastSummary.total.toFixed(2))
+          );
+        } catch (resolveError) {
+          orderId = null;
+        }
       }
 
       if (!orderId) {
         appendLocalOrderLog({
           ...localBase,
-          orderRef: 'Pending order id',
+          orderRef: 'Pending id',
           status: 'created-base-unlinked',
           details:
-            'Order base was created, but backend did not expose order id for linking line items.'
+            'Order base created but response id was missing and fallback lookup failed.'
         });
 
         showInlineMessage(
-          'Order base created, but backend did not expose order id. Cart was kept to avoid losing items.'
+          'Order base created, but order id could not be resolved for line items. Cart was kept.'
         );
         await loadUserOrderHistory();
         return;
@@ -591,8 +716,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           details: `${failedLines.length} line item(s) could not be saved.`
         });
 
+        const failedSummary = failedLines
+          .slice(0, 2)
+          .map((line) => `${line.itemName || line.itemId}: ${line.error}`)
+          .join(' | ');
+
         showInlineMessage(
-          `Order ORD-${orderId} was created, but ${failedLines.length} line item(s) failed. Cart was kept.`
+          `Order ORD-${orderId} was created, but ${failedLines.length} line item(s) failed. ${failedSummary}`
         );
       }
 

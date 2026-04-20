@@ -1,13 +1,6 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   const api = window.FOODSTACK_ADMIN_API;
   const runtime = window.FOODSTACK_RUNTIME || {};
-
-  const sessionUser = api && typeof api.readSession === 'function' ? api.readSession() : null;
-
-  if (sessionUser) {
-    window.location.href = 'staff-home.html';
-    return;
-  }
 
   const form = document.getElementById('admin-login-form');
   const emailInput = document.getElementById('admin-email');
@@ -19,6 +12,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!form || !emailInput || !passwordInput || !submitButton || !messageNode) {
     return;
+  }
+
+  if (api && typeof api.verifyStaffSession === 'function') {
+    const existingSession = await api.verifyStaffSession();
+    if (existingSession && existingSession.ok) {
+      window.location.href = 'staff-home.html';
+      return;
+    }
   }
 
   if (demoNode) {
@@ -83,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      api.saveSession(result.user);
       showMessage('Access granted. Redirecting...', true);
       window.setTimeout(() => {
         window.location.href = 'staff-home.html';
@@ -101,7 +101,18 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   if (demoAccessButton) {
+    const canUseDemoAuth = Boolean(runtime.ALLOW_DEMO_AUTH);
+    if (!canUseDemoAuth) {
+      demoAccessButton.hidden = true;
+      demoAccessButton.setAttribute('aria-hidden', 'true');
+    }
+
     demoAccessButton.addEventListener('click', () => {
+      if (!canUseDemoAuth) {
+        showMessage('Demo mode is disabled. Enable it in runtime-config.js', false);
+        return;
+      }
+
       startDemoStaffSession();
       showMessage('Demo staff session started. Redirecting...', true);
       window.setTimeout(() => {

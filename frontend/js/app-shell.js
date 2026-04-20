@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function logout() {
+    const api = window.FOODSTACK_API;
     const knownKeys = ['foodstack-cart', 'foodstack-user', 'user'];
 
     knownKeys.forEach((key) => window.localStorage.removeItem(key));
@@ -24,8 +25,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    updateCartCounters();
-    window.location.href = 'login.html';
+    const finalizeLogout = () => {
+      updateCartCounters();
+      window.location.href = 'login.html';
+    };
+
+    if (api && typeof api.logout === 'function') {
+      api.logout()
+        .catch(() => null)
+        .finally(finalizeLogout);
+      return;
+    }
+
+    finalizeLogout();
   }
 
   document.querySelectorAll('[data-logout]').forEach((trigger) => {

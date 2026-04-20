@@ -5,12 +5,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  const sessionUser = api.readSession();
+  const sessionResult =
+    typeof api.verifyStaffSession === 'function'
+      ? await api.verifyStaffSession()
+      : { ok: false };
 
-  if (!sessionUser) {
+  if (!sessionResult || !sessionResult.ok || !sessionResult.user) {
     window.location.href = 'admin-login.html';
     return;
   }
+
+  const sessionUser = sessionResult.user;
 
   const userChip = document.getElementById('admin-user-chip');
   const summaryGrid = document.getElementById('admin-summary-grid');
@@ -73,6 +78,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   function capitalize(value) {
     const text = String(value || '');
     return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  function normalizeStatusValue(value) {
+    return String(value || '').trim().toLowerCase() || 'pending';
+  }
+
+  function getStatusOptions(currentStatus) {
+    const defaults = ['pending', 'preparing', 'completed'];
+    const normalizedCurrent = normalizeStatusValue(currentStatus);
+
+    if (defaults.includes(normalizedCurrent)) {
+      return defaults;
+    }
+
+    return [normalizedCurrent].concat(defaults);
   }
 
   function renderSummary(summary) {
@@ -199,9 +219,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    const canUpdateStatus = Boolean(
+      capabilities && capabilities.canUpdateOrderStatus && typeof api.updateOrderStatus === 'function'
+    );
+
     ordersBoardBody.innerHTML = items.map((item) => {
       const status = String(item.status || '').toLowerCase() || 'unknown';
       const summary = item.productsSummary ? escapeHtml(item.productsSummary) : '--';
+      const options = getStatusOptions(status)
+        .map((option) => {
+          const selected = option === status ? ' selected' : '';
+          return `<option value="${escapeHtml(option)}"${selected}>${capitalize(option)}</option>`;
+        })
+        .join('');
+      const selectDisabled = canUpdateStatus && item.orderId ? '' : ' disabled';
+      const orderId = escapeHtml(item.orderId || '');
 
       return `
         <tr>
@@ -214,8 +246,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           <td>${formatMoney(item.total)}</td>
           <td><span class="status-badge" data-status="${status}">${capitalize(status)}</span></td>
           <td>
-            <select class="order-status-action" disabled>
-              <option>${capabilities && capabilities.canUpdateOrderStatus ? 'Available' : 'Backend pending'}</option>
+            <select class="order-status-action" data-order-id="${orderId}" data-current-status="${escapeHtml(
+              status
+            )}"${selectDisabled}>
+              ${options}
             </select>
           </td>
           <td>${formatDate(item.createdAt)}</td>
@@ -224,8 +258,96 @@ document.addEventListener('DOMContentLoaded', async () => {
     }).join('');
   }
 
-  try {
-    if (inlineMessage) {
+  function bindOrderStatusActions(capabilities) {
+    const canUpdateStatus = Boolean(
+      capabilities && capabilities.canUpdateOrderStatus && typeof api.updateOrderStatus === 'function'
+    );
+
+    if (!canUpdateStatus || !ordersBoardBody) {
+      return;
+    }
+
+    ordersBoardBody.querySelectorAll('.order-status-action[data-order-id]').forEach((node) => {
+      node.addEventListener('change', async (event) => {
+        const select = event.currentTarget;
+        const orderId = select.getAttribute('data-order-id');
+        const previousStatus = normalizeStatusValue(
+          select.getAttribute('data-current-status')
+        );
+        const nextStatus = normalizeStatusValue(select.value);
+
+        if (!orderId || !nextStatus || nextStatus === previousStatus) {
+          select.value = previousStatus;
+          return;
+        }
+
+        select.disabled = true;
+
+        if (inlineMessage) {
+          inlineMessage.textContent = `Updating order ORD-${orderId} to ${capitalize(
+            nextStatus
+          )}...`;
+        }
+
+        const result = await api.updateOrderStatus(orderId, nextStatus);
+
+        if (!result || !result.ok) {
+          select.value = previousStatus;
+          select.disabled = false;
+
+          if (inlineMessage) {
+            inlineMessage.textContent = result && result.message
+              ? result.message
+              : 'Could not update order status.';
+          }
+          return;
+        }
+
+        try {
+          await refreshDashboard(
+            `Order ORD-${orderId} updated to ${capitalize(nextStatus)}.`
+          );
+        } catch (refreshError) {
+          select.disabled = false;
+
+          if (inlineMessage) {
+            inlineMessage.textContent =
+              refreshError instanceof Error
+                ? `Order status updated, but refresh failed: ${refreshError.message}`
+                : 'Order status updated, but refresh failed.';
+          }
+        }
+      });
+    });
+  }
+
+  function renderStatusNote(snapshot) {
+    if (!ordersStatusNote) {
+      return;
+    }
+
+    const capabilities = (snapshot && snapshot.orderCapabilities) || {};
+    const notes = [];
+
+    if (!capabilities.canReadOrders) {
+      notes.push('Orders endpoint unavailable; showing partial order view.');
+    }
+
+    if (!capabilities.canReadOrderProducts) {
+      notes.push('Order-products endpoint unavailable.');
+    }
+
+    if (capabilities.canUpdateOrderStatus) {
+      notes.push('Status updates are enabled.');
+    } else {
+      notes.push('Status update endpoint not available.');
+    }
+
+    ordersStatusNote.textContent = notes.join(' ');
+  }
+
+  async function refreshDashboard(successMessage) {
+    if (inlineMessage && !successMessage) {
       inlineMessage.textContent = 'Loading dashboard from live API...';
     }
 
@@ -235,35 +357,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderRecentOrders(snapshot.recentOrders);
     renderOrdersBoard(snapshot.ordersBoard, snapshot.orderCapabilities);
     renderProducts(snapshot.products);
+    renderStatusNote(snapshot);
+    bindOrderStatusActions(snapshot.orderCapabilities);
 
     if (inlineMessage) {
       const warnings = Array.isArray(snapshot.warnings)
         ? snapshot.warnings.filter(Boolean)
         : [];
-
-      inlineMessage.textContent = warnings.length
+      const warningMessage = warnings.length
         ? `Partial data loaded. ${warnings.join(' | ')}`
         : '';
+
+      if (successMessage && warningMessage) {
+        inlineMessage.textContent = `${successMessage} ${warningMessage}`;
+      } else {
+        inlineMessage.textContent = successMessage || warningMessage;
+      }
     }
+  }
 
-    if (ordersStatusNote) {
-      const capabilities = snapshot.orderCapabilities || {};
-      const notes = [];
-
-      if (!capabilities.canReadOrders) {
-        notes.push('Orders endpoint unavailable; showing partial order view.');
-      }
-
-      if (!capabilities.canReadOrderProducts) {
-        notes.push('Order-products endpoint unavailable.');
-      }
-
-      if (!capabilities.canUpdateOrderStatus) {
-        notes.push('Status update endpoint not available yet.');
-      }
-
-      ordersStatusNote.textContent = notes.join(' ') || 'Live orders data loaded.';
-    }
+  try {
+    await refreshDashboard('');
   } catch (error) {
     if (inlineMessage) {
       inlineMessage.textContent =

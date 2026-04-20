@@ -2,9 +2,10 @@ from flask import jsonify, Blueprint, request
 import json
 
 from backend.Models.product_ingredient import ProductIngredient
-from ..Security.Auth import require_auth
+from ..Security.Auth import require_auth, require_roles
 
 product_ingredient_bp = Blueprint('product_ingredient_bp', __name__)
+STAFF_ROLES = {"admin", "staff", "manager"}
 
 # GET ALL
 # -------------------------
@@ -24,6 +25,7 @@ def get_all_product_ingredients():
 # GET BY ID
 # -------------------------
 @product_ingredient_bp.route('/product-ingredient/<int:id>', methods=['GET'])
+@product_ingredient_bp.route('/product-ingredients/<int:id>', methods=['GET'])
 def get_product_ingredient_by_id(id):
     try:
         return jsonify({
@@ -56,9 +58,18 @@ def get_product_ingredients_by_product_id(product_id):
 # POST
 # -------------------------
 @product_ingredient_bp.route('/product-ingredient', methods=['POST'])
+@product_ingredient_bp.route('/product-ingredients', methods=['POST'])
+@require_auth
+@require_roles(*STAFF_ROLES)
 def create_product_ingredient():
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({
+                "status": 1,
+                "errorMessage": "JSON body is required."
+            }), 400
+
         pi = ProductIngredient()
 
         pi.product_id = data.get("product_id")
@@ -73,19 +84,28 @@ def create_product_ingredient():
             "status": 0,
             "message": "Product ingredient created successfully",
             "id": new_id
-        })
+        }), 201
     except Exception as e:
         return jsonify({
             "status": 1,
             "errorMessage": str(e)
-        })
+        }), 500
 
 # PUT
 # -------------------------
 @product_ingredient_bp.route('/product-ingredient/<int:id>', methods=['PUT'])
+@product_ingredient_bp.route('/product-ingredients/<int:id>', methods=['PUT'])
+@require_auth
+@require_roles(*STAFF_ROLES)
 def update_product_ingredient(id):
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({
+                "status": 1,
+                "errorMessage": "JSON body is required."
+            }), 400
+
         pi = ProductIngredient(id)
 
         pi.product_id = data.get("product_id", pi.product_id)
@@ -99,9 +119,9 @@ def update_product_ingredient(id):
         return jsonify({
             "status": 0,
             "message": "Product ingredient updated successfully"
-        })
+        }), 200
     except Exception as e:
         return jsonify({
             "status": 1,
             "errorMessage": str(e)
-        })
+        }), 500

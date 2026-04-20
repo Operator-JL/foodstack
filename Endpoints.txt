@@ -1,86 +1,61 @@
-Users 
-get-all
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/users
-get by id
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/category/1
-POST
-PUT
-{
-  "name": "Jose",
-  "lastname": "Gonzalez",
-  "phoneNumber": "6643104178",
-  "email": "jlozoya.599@gmail.com",
-  "password": "Hola123!",
-  "role": "admin"
-}
+FoodStack API endpoint map (canonical routes)
 
+Auth / Session
+- POST /api/login
+- POST /api/logout
+- GET  /api/session
 
-Categories 
-get-all
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/categories
-get by id
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/category/1
+Users
+- GET  /api/users                 (staff only)
+- GET  /api/users/{id}            (self or staff)
+- POST /api/users                 (public signup -> role forced to customer)
+- PUT  /api/users/{id}            (self or staff; role/status only staff)
 
+Categories
+- GET  /api/categories
+- GET  /api/categories/{id}
+- POST /api/categories            (staff only)
 
-Products 
-get-all
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/products
-get by id
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/products/1
-POST
-{
-  "category_id": 3,
-  "name": "Curly Fries",
-  "description": "Crispy golden spirals packed with bold seasoning in every twist. Crunchy on the outside, fluffy on the inside—once you start, you can’t stop.",
-  "image": "https://yourcdn.com/images/curly-fries.jpg",
-  "price": 49.99,
-  "status": 1
-}
+Products
+- GET  /api/products
+- GET  /api/products/{id}
+- POST /api/products              (staff only)
+- PUT  /api/products/{id}         (staff only)
 
+Ingredients
+- GET  /api/ingredients
+- GET  /api/ingredients/{id}
+- POST /api/ingredients           (staff only)
+- PUT  /api/ingredients/{id}      (staff only)
 
-Ingredients 
-get-all
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/ingredients
-get by id
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/ingredient/1
-POST
-PUT
+Product Ingredients
+- GET  /api/product-ingredients
+- GET  /api/product-ingredients/{id}
+- GET  /api/product-ingredients/product/{product_id}
+- POST /api/product-ingredients   (staff only)
+- PUT  /api/product-ingredients/{id} (staff only)
 
+Orders
+- GET  /api/orders                (staff only)
+- GET  /api/orders/{id}           (owner or staff)
+- GET  /api/orders/user/{user_id} (same user or staff)
+- POST /api/orders                (authenticated user)
+- PUT  /api/orders/{id}           (staff only)
 
-Product-Ingredients 
-get-all
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/product-ingredients
-get by id
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/product-ingredient/1
-POST
-PUT
+Order Products
+- GET  /api/order-products                 (staff only)
+- GET  /api/order-products/{id}            (owner or staff)
+- GET  /api/order-products/order/{order_id} (owner or staff)
+- POST /api/order-products                 (owner of order or staff)
+- PUT  /api/order-products/{id}            (staff only)
 
+Order Product Ingredients
+- GET  /api/order-product-ingredients
+- GET  /api/order-product-ingredients/{id}
+- GET  /api/order-product-ingredients/order-product/{order_product_id}
+- POST /api/order-product-ingredients
+- PUT  /api/order-product-ingredients/{id}
 
-Orders 
-get-all
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/orders
-get by id
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/orders/1
-POST
-PUT
-
-
-Order-Products 
-get-all
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-products
-get by id
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-product/1
-PUT
-POST
-
-
-Order-Product-Ingredients 
-get-all
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-product-ingredients
-get by id
-https://foodstack-api-jl-bjcrd6dfe3avgef2.westus3-01.azurewebsites.net/api/order-product-ingredient/1
-PUT
-POST
-
-
-
+Compatibility notes
+- Legacy singular routes are still supported for transition:
+  /api/user/{id}, /api/order/{id}, /api/order-product/{id}, etc.

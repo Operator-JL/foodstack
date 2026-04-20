@@ -12,14 +12,20 @@ class SQLServerConnection:
         username = os.getenv("SQL_USER")
         password = os.getenv("SQL_PASSWORD")
 
+        missing = []
         if not server:
-            print("Configuration Error: SQL_SERVER not set in .env file")
+            missing.append("SQL_SERVER")
         if not database:
-            print("Configuration Error: SQL_DATABASE not set in .env file")
+            missing.append("DATABASE")
         if not username:
-            print("Configuration Error: SQL_USERNAME not set in .env file")
+            missing.append("SQL_USER")
         if not password:
-            print("Configuration Error: SQL_PASSWORD not set in .env file")
+            missing.append("SQL_PASSWORD")
+
+        if missing:
+            raise RuntimeError(
+                f"Missing SQL configuration variable(s): {', '.join(missing)}."
+            )
 
         connectionString = (
             "Driver={ODBC Driver 18 for SQL Server};"
@@ -34,12 +40,10 @@ class SQLServerConnection:
         try:
             connection = pyodbc.connect(connectionString)
             connection.setencoding("utf8")
-            connection.setdecoding(pyodbc.SQL_CHAR,encoding='utf8')
-            connection.setdecoding(pyodbc.SQL_WCHAR,encoding='utf8')
+            connection.setdecoding(pyodbc.SQL_CHAR, encoding="utf8")
+            connection.setdecoding(pyodbc.SQL_WCHAR, encoding="utf8")
         except Exception as ex:
-            print("Could not connect to SQL server")
-            print(str(ex))
-            return None
+            raise ConnectionError(f"Could not connect to SQL server: {str(ex)}") from ex
         return connection
 
 

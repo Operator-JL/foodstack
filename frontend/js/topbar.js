@@ -175,8 +175,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('[data-admin-logout]').forEach((button) => {
     button.addEventListener('click', () => {
-      window.localStorage.removeItem('foodstack-admin-session');
-      window.location.href = 'admin-login.html';
+      const api = window.FOODSTACK_API;
+      const finish = () => {
+        window.localStorage.removeItem('foodstack-admin-session');
+        window.location.href = 'admin-login.html';
+      };
+
+      if (api && typeof api.logout === 'function') {
+        api.logout().catch(() => null).finally(finish);
+        return;
+      }
+
+      finish();
     });
   });
 });
