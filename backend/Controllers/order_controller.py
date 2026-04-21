@@ -1,18 +1,20 @@
+from flask import jsonify, Blueprint, request
 import json
-from flask import jsonify, Blueprint, request, make_response
-from backend.Models.user import User, RecordNotFoundException
-from ..Security.Auth import require_auth, generate_token
 
-user_bp = Blueprint("user_bp", __name__)
+from backend.Models.order import Order, RecordNotFoundException
+from ..Security.Auth import require_auth
+
+order_bp = Blueprint('order_bp', __name__)
 
 # GET ALL
 # -------------------------
-@user_bp.route('/users', methods=['GET'])
+@order_bp.route('/orders', methods=['GET'])
+#@require_auth
 def get_all():
     try:
         return jsonify({
             "status": 0,
-            "data": [u.to_dict() for u in User.get_all()]
+            "data": [o.to_dict() for o in Order.get_all()]
         })
     except Exception as e:
         return jsonify({
@@ -22,14 +24,13 @@ def get_all():
 
 # GET BY ID
 # -------------------------
-@user_bp.route('/user/<int:user_id>', methods=['GET'])
+@order_bp.route('/order/<int:id>', methods=['GET'])
 #@require_auth
-def get_by_id(user_id):
+def get_by_id(id):
     try:
-        u = User(user_id)
         return jsonify({
             "status": 0,
-            "data": u.details(None)
+            "data": Order.get_by_id(id)
         })
     except RecordNotFoundException as e:
         return jsonify({
@@ -42,28 +43,41 @@ def get_by_id(user_id):
             "errorMessage": str(e)
         })
 
+# GET BY USER ID
+# -------------------------
+@order_bp.route('/orders/user/<int:user_id>', methods=['GET'])
+#@require_auth
+def get_by_user_id(user_id):
+    try:
+        return jsonify({
+            "status": 0,
+            "data": Order.get_by_user_id(user_id)
+        })
+    except Exception as e:
+        return jsonify({
+            "status": 1,
+            "errorMessage": str(e)
+        })
+
 # POST
 # -------------------------
-@user_bp.route('/user', methods=['POST'])
+@order_bp.route('/order', methods=['POST'])
 #@require_auth
 def create():
     try:
         data = request.get_json()
 
-        u = User()
-        u.name = data.get("name")
-        u.lastname = data.get("lastname")
-        u.phoneNumber = data.get("phoneNumber")
-        u.email = data.get("email")
-        u.password = data.get("password")
-        u.role = data.get("role")
-        u.status = data.get("status", 1)
+        o = Order()
+        o.user_id = data.get("user_id")
+        o.total = data.get("total", 0.0)
+        o.datetime = data.get("datetime")
+        o.status = data.get("status", "pending")
 
-        new_id = u.add()
+        new_id = o.add()
 
         return jsonify({
             "status": 0,
-            "message": "User created successfully",
+            "message": "Order created successfully",
             "data": {
                 "id": new_id
             }
@@ -74,32 +88,25 @@ def create():
             "errorMessage": str(e)
         })
 
-# UPDATE
+# PUT
 # -------------------------
-@user_bp.route('/user/<int:user_id>', methods=['PUT'])
+@order_bp.route('/order/<int:id>', methods=['PUT'])
 #@require_auth
-def update(user_id):
+def update(id):
     try:
         data = request.get_json()
-        u = User(user_id)
 
-        u.name = data.get("name", u.name)
-        u.lastname = data.get("lastname", u.lastname)
-        u.phoneNumber = data.get("phoneNumber", u.phoneNumber)
-        u.email = data.get("email", u.email)
-        u.role = data.get("role", u.role)
-        u.status = data.get("status", u.status)
+        o = Order(id)
+        o.user_id = data.get("user_id", o.user_id)
+        o.total = data.get("total", o.total)
+        o.datetime = data.get("datetime", o.datetime)
+        o.status = data.get("status", o.status)
 
-        u.update()
-
-        # 🔥 Update password separately if provided
-        if "password" in data and data["password"]:
-            u.password = data["password"]
-            u.update_password()
+        o.update()
 
         return jsonify({
             "status": 0,
-            "message": "User updated successfully"
+            "message": "Order updated successfully"
         })
     except RecordNotFoundException as e:
         return jsonify({
@@ -111,62 +118,3 @@ def update(user_id):
             "status": 1,
             "errorMessage": str(e)
         })
-
-# LOGIN
-# -------------------------
-@user_bp.route("/login", methods=["POST"])
-def login():
-    try:
-        data = request.get_json()
-
-        if not data or "email" not in data or "password" not in data:
-            return jsonify({
-                "status": 1,
-                "errorMessage": "Email and password are required."
-            }), 400
-
-        u = User.get_by_email(data["email"])
-
-        if not u or not u.check_password(data["password"]):
-            return jsonify({
-                "status": 1,
-                "errorMessage": "Invalid credentials."
-            }), 401
-
-        token = generate_token(u.id)
-
-        response = make_response(jsonify({
-            "status": 0,
-            "user": u.to_dict()
-        }))
-
-        response.set_cookie(
-            "auth_token",
-            token,
-            httponly=True,
-            secure=False,
-            samesite="Lax",
-            max_age=60 * 60 * 10
-        )
-
-        return response
-
-    except Exception as ex:
-        return jsonify({
-            "status": 2,
-            "errorMessage": str(ex)
-        }), 400
-
-# LOGOUT
-# -------------------------
-@user_bp.route("/logout", methods=["POST"])
-#@require_auth
-def logout():
-    response = jsonify({
-        "status": 0,
-        "message": "Logged Out"
-    })
-
-    response.delete_cookie("auth_token")
-
-    return response
