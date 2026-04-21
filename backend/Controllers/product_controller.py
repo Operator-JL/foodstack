@@ -2,7 +2,7 @@ import re
 
 from flask import Blueprint, jsonify, request
 
-from backend.Models.category import Category
+from backend.Models.category import Category, RecordNotFoundException as CategoryNotFoundException
 from backend.Models.product import Product, RecordNotFoundException
 from ..Security.Auth import require_auth, require_roles
 
@@ -10,6 +10,18 @@ product_bp = Blueprint('product_bp', __name__)
 STAFF_ROLES = {"admin", "staff", "manager"}
 MIN_PRICE = 0.5
 MAX_PRICE = 99.99
+REAL_CATALOG_CATEGORY_MAP = {
+    "burger": "Burgers",
+    "burgers": "Burgers",
+    "taco": "Tacos",
+    "tacos": "Tacos",
+    "burrito": "Burritos",
+    "burritos": "Burritos",
+    "drink": "Drinks",
+    "drinks": "Drinks",
+    "side": "Sides",
+    "sides": "Sides"
+}
 
 
 def _json_error(message, http_status=400, status=1):
@@ -23,7 +35,7 @@ def _normalize_name(raw_name):
     name = re.sub(r"\s+", " ", str(raw_name or "").strip())
     if len(name) < 3 or len(name) > 80:
         raise ValueError("name must be between 3 and 80 characters.")
-    if not re.fullmatch(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9 .,&'/-]*", name):
+    if not re.fullmatch(r"[A-Za-z0-9\u00C0-\u024F][A-Za-z0-9\u00C0-\u024F .,&'/-]*", name):
         raise ValueError("name has invalid characters.")
     return name
 
@@ -47,6 +59,11 @@ def _normalize_image(raw_image, required=False):
         raise ValueError("image is required.")
     if len(image) > 500:
         raise ValueError("image is too long.")
+
+    lowered = image.lower()
+    if lowered.startswith("javascript:") or lowered.startswith("data:text/html"):
+        raise ValueError("image has an invalid URL scheme.")
+
     return image
 
 
@@ -72,19 +89,35 @@ def _normalize_status(raw_status, required=False, fallback=1):
     return status
 
 
+def _canonical_catalog_category(raw_name):
+    cleaned = re.sub(r"\s+", " ", str(raw_name or "").strip()).lower()
+    key = re.sub(r"[^a-z0-9]+", "", cleaned)
+    return REAL_CATALOG_CATEGORY_MAP.get(key) or REAL_CATALOG_CATEGORY_MAP.get(cleaned)
+
+
 def _normalize_category_id(raw_category_id):
     try:
         category_id = int(raw_category_id)
     except Exception:
         raise ValueError("category_id must be numeric.")
+
     if category_id <= 0:
         raise ValueError("category_id must be a positive integer.")
-    if not Category.exists_by_id(category_id):
+
+    try:
+        category = Category(category_id)
+    except CategoryNotFoundException:
         raise LookupError("category_id does not exist.")
+
+    if int(category.status) != 1:
+        raise LookupError("category_id is inactive.")
+
+    if not _canonical_catalog_category(category.name):
+        raise LookupError("category_id is not part of the real catalog.")
+
     return category_id
 
 
-# GET ALL
 @product_bp.route('/products', methods=['GET'])
 def get_all():
     try:
@@ -96,7 +129,6 @@ def get_all():
         return _json_error(str(e), 500)
 
 
-# GET BY ID
 @product_bp.route('/product/<int:product_id>', methods=['GET'])
 @product_bp.route('/products/<int:product_id>', methods=['GET'])
 def get_product_by_id(product_id):
@@ -112,7 +144,6 @@ def get_product_by_id(product_id):
         return _json_error(str(e), 500)
 
 
-# POST
 @product_bp.route('/product', methods=['POST'])
 @product_bp.route('/products', methods=['POST'])
 @require_auth
@@ -148,7 +179,6 @@ def create_product():
         return _json_error(str(e), 500)
 
 
-# PUT
 @product_bp.route('/product/<int:product_id>', methods=['PUT'])
 @product_bp.route('/products/<int:product_id>', methods=['PUT'])
 @require_auth

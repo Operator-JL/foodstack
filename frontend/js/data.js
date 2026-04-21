@@ -1,6 +1,22 @@
 (function () {
   const CART_STORAGE_KEY = 'foodstack-cart';
   const FALLBACK_PRODUCT_IMAGE = 'assets/images/logo-foodstack.png';
+  const REAL_CATALOG_ORDER = ['Burgers', 'Tacos', 'Burritos', 'Drinks', 'Sides'];
+  const PRODUCT_IMAGE_EXTENSIONS = ['svg', 'png', 'jpg'];
+  const CATEGORY_IMAGE_EXTENSIONS = ['png', 'jpg', 'svg'];
+  const PRODUCT_SLUG_ALIASES = {
+    'double-stack-burger': ['double-burger'],
+    'double-burger': ['double-stack-burger'],
+    'stack-burger': ['double-burger'],
+    'curly-fries': ['fries'],
+    fries: ['curly-fries'],
+    'taco-supreme': ['taco-classic'],
+    'chicken-taco': ['taco-chicken'],
+    'classic-taco': ['taco-classic'],
+    'spicy-taco': ['taco-spicy'],
+    'beef-burrito': ['spicy-beef-burrito'],
+    'spicy-beef-burrito': ['beef-burrito']
+  };
 
   const state = {
     products: [],
@@ -15,11 +31,6 @@
 
   function hasApiClient() {
     return Boolean(window.FOODSTACK_API);
-  }
-
-  function canUseFallbackCatalog() {
-    const runtime = window.FOODSTACK_RUNTIME;
-    return runtime ? Boolean(runtime.DEV_FALLBACK_MODE) : true;
   }
 
   function normalizeText(value) {
@@ -42,6 +53,41 @@
 
     const normalized = String(value || '').trim().toLowerCase();
     return normalized !== '0' && normalized !== 'false' && normalized !== 'inactive';
+  }
+
+  function normalizeSlug(value) {
+    return normalizeText(value)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/&/g, ' and ')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function normalizeCategoryName(value) {
+    const slug = normalizeSlug(value);
+    const mapping = {
+      burger: 'Burgers',
+      burgers: 'Burgers',
+      taco: 'Tacos',
+      tacos: 'Tacos',
+      burrito: 'Burritos',
+      burritos: 'Burritos',
+      drink: 'Drinks',
+      drinks: 'Drinks',
+      side: 'Sides',
+      sides: 'Sides'
+    };
+    return mapping[slug] || '';
+  }
+
+  function categoryToFolder(value) {
+    const canonical = normalizeCategoryName(value);
+    if (!canonical) {
+      return '';
+    }
+    return canonical.toLowerCase();
   }
 
   function normalizeCart(candidate) {
@@ -151,14 +197,13 @@
   }
 
   function mapCategoryName(product, categoryMap) {
-    const apiCategoryName = normalizeText(product && product.category_name);
+    const apiCategoryName = normalizeCategoryName(product && product.category_name);
     if (apiCategoryName) {
       return apiCategoryName;
     }
 
     if (product && product.category && typeof product.category === 'object') {
-      const embeddedName = normalizeText(product.category.name);
-
+      const embeddedName = normalizeCategoryName(product.category.name);
       if (embeddedName) {
         return embeddedName;
       }
@@ -166,7 +211,7 @@
 
     const explicitCategory =
       product && typeof product.category === 'string' ? product.category : '';
-    const explicitName = normalizeText(
+    const explicitName = normalizeCategoryName(
       product && (product.category_name || product.categoryName || explicitCategory)
     );
 
@@ -174,13 +219,100 @@
       return explicitName;
     }
 
-    const byId = categoryMap.get(String(product && product.category_id));
-
+    const byId = normalizeCategoryName(categoryMap.get(String(product && product.category_id)));
     if (byId) {
       return byId;
     }
 
     return 'Uncategorized';
+  }
+
+  function pushUnique(list, value) {
+    const item = normalizeText(value);
+    if (!item) {
+      return;
+    }
+    if (!list.includes(item)) {
+      list.push(item);
+    }
+  }
+
+  function buildSlugCandidates(product) {
+    const candidates = [];
+    const primarySlug = normalizeSlug(product && product.name);
+    pushUnique(candidates, primarySlug);
+
+    const aliases = PRODUCT_SLUG_ALIASES[primarySlug] || [];
+    aliases.forEach((alias) => pushUnique(candidates, normalizeSlug(alias)));
+
+    const imageValue = normalizeText(product && product.image);
+    if (imageValue) {
+      const maybeFile = imageValue.split('/').pop() || '';
+      const fromImage = normalizeSlug(maybeFile.replace(/\.[A-Za-z0-9]+$/, ''));
+      pushUnique(candidates, fromImage);
+    }
+
+    return candidates;
+  }
+
+  function buildImageCandidates(product) {
+    const candidates = [];
+    const imageFromApi = normalizeText(product && product.image);
+    if (imageFromApi) {
+      pushUnique(candidates, imageFromApi);
+    }
+
+    const slugCandidates = buildSlugCandidates(product);
+    const categoryFolder = categoryToFolder(
+      product && (product.category || product.category_name)
+    );
+
+    slugCandidates.forEach((slug) => {
+      PRODUCT_IMAGE_EXTENSIONS.forEach((ext) => {
+        pushUnique(candidates, `assets/images/products/${slug}.${ext}`);
+      });
+    });
+
+    if (categoryFolder) {
+      slugCandidates.forEach((slug) => {
+        CATEGORY_IMAGE_EXTENSIONS.forEach((ext) => {
+          pushUnique(candidates, `assets/images/${categoryFolder}/${slug}.${ext}`);
+        });
+      });
+    }
+
+    pushUnique(candidates, FALLBACK_PRODUCT_IMAGE);
+    return candidates;
+  }
+
+  function resolveProductImage(product) {
+    const candidates = buildImageCandidates(product);
+    return {
+      src: candidates[0] || FALLBACK_PRODUCT_IMAGE,
+      candidates: candidates
+    };
+  }
+
+  function bindProductImage(imageNode, product) {
+    if (!imageNode) {
+      return;
+    }
+
+    const resolved = resolveProductImage(product);
+    const candidates = resolved.candidates.slice();
+    let index = 0;
+
+    imageNode.src = candidates[index] || FALLBACK_PRODUCT_IMAGE;
+
+    imageNode.onerror = () => {
+      index += 1;
+      if (index >= candidates.length) {
+        imageNode.onerror = null;
+        imageNode.src = FALLBACK_PRODUCT_IMAGE;
+        return;
+      }
+      imageNode.src = candidates[index];
+    };
   }
 
   function mapProduct(rawProduct, categoryMap) {
@@ -190,21 +322,26 @@
       return null;
     }
 
-    return {
+    const category = mapCategoryName(rawProduct, categoryMap);
+    const normalized = {
       id: id,
       name: normalizeText(rawProduct && rawProduct.name) || 'Unnamed product',
       price: normalizeNumber(rawProduct && rawProduct.price),
-      category: mapCategoryName(rawProduct, categoryMap),
+      category: category,
       description:
         normalizeText(rawProduct && rawProduct.description) || 'No description available.',
-      image: normalizeText(rawProduct && rawProduct.image) || FALLBACK_PRODUCT_IMAGE,
+      image: normalizeText(rawProduct && rawProduct.image),
       categoryId: normalizeText(rawProduct && rawProduct.category_id),
+      ingredientLinks: Math.max(0, Math.floor(normalizeNumber(rawProduct && rawProduct.ingredient_links))),
       ingredients: Array.isArray(rawProduct && rawProduct.ingredients)
         ? rawProduct.ingredients.slice()
         : [],
       status: normalizeBoolean(rawProduct && rawProduct.status),
       raw: rawProduct
     };
+
+    normalized.resolvedImage = resolveProductImage(normalized).src;
+    return normalized;
   }
 
   function unique(items) {
@@ -231,49 +368,8 @@
     return state.catalogSource;
   }
 
-  function isUsingFallbackCatalog() {
-    return state.catalogSource === 'demo';
-  }
-
   function isCatalogLoaded() {
     return state.catalogLoaded;
-  }
-
-  function getLocalDemoCatalog() {
-    const source = window.FOODSTACK_DEMO_CATALOG || {};
-    const categories = Array.isArray(source.categories) ? source.categories.slice() : [];
-    const products = Array.isArray(source.products) ? source.products.slice() : [];
-
-    if (!categories.length || !products.length) {
-      return {
-        categories: ['Burgers', 'Drinks'],
-        products: [
-          {
-            id: 'demo-burger',
-            name: 'Demo Burger',
-            category: 'Burgers',
-            description: 'Local fallback item for development preview.',
-            image: FALLBACK_PRODUCT_IMAGE,
-            price: 9.99,
-            status: true
-          },
-          {
-            id: 'demo-drink',
-            name: 'Demo Drink',
-            category: 'Drinks',
-            description: 'Local fallback item for development preview.',
-            image: FALLBACK_PRODUCT_IMAGE,
-            price: 2.5,
-            status: true
-          }
-        ]
-      };
-    }
-
-    return {
-      categories: categories,
-      products: products
-    };
   }
 
   async function loadCatalog(forceRefresh) {
@@ -291,104 +387,64 @@
     }
 
     catalogPromise = (async () => {
-      try {
-        if (!hasApiClient()) {
-          throw new Error('API client is not available.');
-        }
-
-        const api = window.FOODSTACK_API;
-        const [categoriesResponse, productsResponse] = await Promise.all([
-          api.getCategories(),
-          api.getProducts()
-        ]);
-
-        const categories = Array.isArray(categoriesResponse) ? categoriesResponse : [];
-        const products = Array.isArray(productsResponse) ? productsResponse : [];
-
-        const normalizedCategories = categories
-          .filter((item) => normalizeBoolean(item && item.status))
-          .map((item) => ({
-            id: normalizeText(item && item.id),
-            name: normalizeText(item && item.name)
-          }))
-          .filter((item) => item.id && item.name);
-
-        const categoryMap = new Map(
-          normalizedCategories.map((item) => [String(item.id), item.name])
-        );
-
-        const normalizedProducts = products
-          .filter((item) => normalizeBoolean(item && item.status))
-          .map((item) => mapProduct(item, categoryMap))
-          .filter(Boolean);
-
-        if (canUseFallbackCatalog() && normalizedProducts.length === 0) {
-          throw new Error('API returned no active products.');
-        }
-
-        const categoryNames = unique(
-          normalizedCategories.map((item) => item.name).concat(
-            normalizedProducts.map((item) => item.category)
-          )
-        ).filter(Boolean);
-
-        state.categories = categoryNames;
-        state.products = normalizedProducts;
-        state.catalogLoaded = true;
-        state.lastError = '';
-        state.lastWarning = '';
-        state.catalogSource = 'api';
-
-        pruneInvalidCartItems();
-
-        return {
-          categories: getCategories(),
-          products: getProducts(),
-          source: 'api',
-          warning: ''
-        };
-      } catch (error) {
-        if (!canUseFallbackCatalog()) {
-          throw error;
-        }
-
-        const demoCatalog = getLocalDemoCatalog();
-        const fallbackCategories = demoCatalog.categories
-          .map((item, index) => ({
-            id: String(index + 1),
-            name: normalizeText(item)
-          }))
-          .filter((item) => item.name);
-        const categoryMap = new Map(
-          fallbackCategories.map((item) => [item.id, item.name])
-        );
-        const fallbackProducts = demoCatalog.products
-          .filter((item) => normalizeBoolean(item && item.status))
-          .map((item) => mapProduct(item, categoryMap))
-          .filter(Boolean);
-        const categoryNames = unique(
-          fallbackCategories.map((item) => item.name).concat(
-            fallbackProducts.map((item) => item.category)
-          )
-        ).filter(Boolean);
-
-        state.categories = categoryNames;
-        state.products = fallbackProducts;
-        state.catalogLoaded = true;
-        state.lastError = error instanceof Error ? error.message : String(error);
-        state.lastWarning =
-          'API not available. Using local demo catalog for development.';
-        state.catalogSource = 'demo';
-
-        pruneInvalidCartItems();
-
-        return {
-          categories: getCategories(),
-          products: getProducts(),
-          source: 'demo',
-          warning: state.lastWarning
-        };
+      if (!hasApiClient()) {
+        throw new Error('API client is not available.');
       }
+
+      const api = window.FOODSTACK_API;
+      const [categoriesResponse, productsResponse] = await Promise.all([
+        api.getCategories(),
+        api.getProducts()
+      ]);
+
+      const categories = Array.isArray(categoriesResponse) ? categoriesResponse : [];
+      const products = Array.isArray(productsResponse) ? productsResponse : [];
+
+      const normalizedCategories = categories
+        .filter((item) => normalizeBoolean(item && item.status))
+        .map((item) => ({
+          id: normalizeText(item && item.id),
+          name: normalizeCategoryName(item && item.name)
+        }))
+        .filter((item) => item.id && item.name);
+
+      const categoryMap = new Map(
+        normalizedCategories.map((item) => [String(item.id), item.name])
+      );
+
+      const normalizedProducts = products
+        .filter((item) => normalizeBoolean(item && item.status))
+        .map((item) => mapProduct(item, categoryMap))
+        .filter(Boolean);
+
+      const detectedCategoryNames = unique(
+        normalizedCategories
+          .map((item) => item.name)
+          .concat(normalizedProducts.map((item) => item.category))
+          .map(normalizeCategoryName)
+          .filter(Boolean)
+      );
+      const categorySet = new Set(detectedCategoryNames);
+      const categoryNames = REAL_CATALOG_ORDER.slice();
+      const missingCategories = REAL_CATALOG_ORDER.filter((name) => !categorySet.has(name));
+
+      state.categories = categoryNames;
+      state.products = normalizedProducts;
+      state.catalogLoaded = true;
+      state.lastError = '';
+      state.lastWarning = missingCategories.length
+        ? `API is missing active catalog categories: ${missingCategories.join(', ')}.`
+        : '';
+      state.catalogSource = 'api';
+
+      pruneInvalidCartItems();
+
+      return {
+        categories: getCategories(),
+        products: getProducts(),
+        source: 'api',
+        warning: state.lastWarning
+      };
     })()
       .catch((error) => {
         state.catalogLoaded = false;
@@ -410,7 +466,6 @@
     getCatalogError: getCatalogError,
     getCatalogWarning: getCatalogWarning,
     getCatalogSource: getCatalogSource,
-    isUsingFallbackCatalog: isUsingFallbackCatalog,
     getCategories: getCategories,
     getProducts: getProducts,
     byCategory: byCategory,
@@ -420,7 +475,9 @@
     clearCart: clearCart,
     addToCart: addToCart,
     cartCount: cartCount,
-    money: money
+    money: money,
+    resolveProductImage: resolveProductImage,
+    bindProductImage: bindProductImage
   };
 
   Object.defineProperty(publicApi, 'categories', {

@@ -58,14 +58,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   function cardTemplate(product) {
     const name = escapeHtml(product.name);
     const description = escapeHtml(product.description);
-    const image = escapeHtml(product.image);
     const productId = escapeHtml(product.id);
+    const resolvedImage = data.resolveProductImage(product);
+    const image = escapeHtml(resolvedImage.src);
 
     return `
       <article class="product-card">
         <div class="product-image">
           <img
             class="product-card__image"
+            data-product-id="${productId}"
             src="${image}"
             alt="${name}"
             loading="lazy"
@@ -112,17 +114,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const items = randomSelection(products, 6);
     grid.innerHTML = items.map(cardTemplate).join('');
+
+    if (typeof data.bindProductImage === 'function') {
+      const productMap = new Map(items.map((item) => [String(item.id), item]));
+      grid.querySelectorAll('.product-card__image[data-product-id]').forEach((imageNode) => {
+        const productId = imageNode.getAttribute('data-product-id') || '';
+        const product = productMap.get(String(productId));
+        if (product) {
+          data.bindProductImage(imageNode, product);
+        }
+      });
+    }
+
     bindAddButtons();
     showInfo('');
   }
 
   try {
     showInfo('Loading featured products...');
-    const result = await data.loadCatalog();
+    await data.loadCatalog();
     renderProducts();
-
-    if (result && result.source === 'demo') {
-      showInfo(result.warning || 'Using local demo catalog.');
+    const warning = data.getCatalogWarning();
+    if (warning) {
+      showInfo(warning);
     }
   } catch (error) {
     if (grid) {

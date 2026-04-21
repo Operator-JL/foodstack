@@ -189,7 +189,9 @@ class Product:
                         ISNULL(c.Name, '') AS Category_Name,
                         ISNULL(pi_stats.Ingredient_Links, 0) AS Ingredient_Links
                     FROM Products p
-                    LEFT JOIN Categories c ON c.Id = p.Category_Id
+                    INNER JOIN Categories c
+                        ON c.Id = p.Category_Id
+                       AND c.Status = 1
                     LEFT JOIN (
                         SELECT Product_Id, COUNT(*) AS Ingredient_Links
                         FROM Product_Ingredients
@@ -197,6 +199,8 @@ class Product:
                         GROUP BY Product_Id
                     ) pi_stats ON pi_stats.Product_Id = p.Id
                     WHERE p.Status = 1
+                      AND LOWER(LTRIM(RTRIM(c.Name))) IN
+                          ('burgers', 'tacos', 'burritos', 'drinks', 'sides')
                     ORDER BY p.Name
                 """)
 

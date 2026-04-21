@@ -1,6 +1,18 @@
 (function () {
   const ADMIN_SESSION_KEY = 'foodstack-admin-session';
   const KNOWN_STAFF_ROLES = new Set(['admin', 'staff', 'manager']);
+  const REAL_CATALOG_CATEGORY_MAP = {
+    burger: 'Burgers',
+    burgers: 'Burgers',
+    taco: 'Tacos',
+    tacos: 'Tacos',
+    burrito: 'Burritos',
+    burritos: 'Burritos',
+    drink: 'Drinks',
+    drinks: 'Drinks',
+    side: 'Sides',
+    sides: 'Sides'
+  };
 
   function normalizeText(value) {
     return String(value || '').trim();
@@ -47,17 +59,26 @@
     return KNOWN_STAFF_ROLES.has(normalizeText(role).toLowerCase());
   }
 
+  function normalizeCatalogCategoryName(value) {
+    const normalized = normalizeText(value)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const compact = normalized.replace(/[^a-z0-9]+/g, '');
+    return (
+      REAL_CATALOG_CATEGORY_MAP[compact] ||
+      REAL_CATALOG_CATEGORY_MAP[normalized] ||
+      ''
+    );
+  }
+
   function saveSession(user) {
-    const runtime = window.FOODSTACK_RUNTIME || {};
     const payload = {
       user: user,
       signedAt: new Date().toISOString()
     };
 
     window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(payload));
-    if (typeof runtime.setDemoMode === 'function') {
-      runtime.setDemoMode(false);
-    }
   }
 
   function readSession() {
@@ -92,9 +113,10 @@
   }
 
   function normalizeCategory(item) {
+    const name = normalizeCatalogCategoryName(item && item.name);
     return {
       id: normalizeText(item && item.id),
-      name: normalizeText(item && item.name),
+      name: name,
       status: normalizeBoolean(item && item.status)
     };
   }
@@ -106,12 +128,15 @@
       item && item.category && typeof item.category === 'object'
         ? normalizeText(item.category.name)
         : '';
-    const fallbackCategoryName = categoryMap.get(categoryId) || 'Uncategorized';
+    const fallbackCategoryName = normalizeCatalogCategoryName(categoryMap.get(categoryId));
     const categoryName =
-      apiCategoryName ||
-      embeddedCategoryName ||
-      normalizeText(item && (item.category_name || item.categoryName || item.category)) ||
-      fallbackCategoryName;
+      normalizeCatalogCategoryName(apiCategoryName) ||
+      normalizeCatalogCategoryName(embeddedCategoryName) ||
+      normalizeCatalogCategoryName(
+        normalizeText(item && (item.category_name || item.categoryName || item.category))
+      ) ||
+      fallbackCategoryName ||
+      'Uncategorized';
 
     const rawStock = item && item.stock;
     const stockParsed = Number(rawStock);
@@ -523,124 +548,8 @@
     }
   }
 
-  function canUseDevFallback() {
-    const runtime = window.FOODSTACK_RUNTIME;
-    return runtime ? Boolean(runtime.DEV_FALLBACK_MODE) : true;
-  }
-
-  function buildDemoFallbackData() {
-    const nowIso = new Date().toISOString();
-    const demoCatalog = window.FOODSTACK_DEMO_CATALOG || {};
-    const demoCategoryNames = Array.isArray(demoCatalog.categories)
-      ? demoCatalog.categories
-      : [];
-    const demoProductsRaw = Array.isArray(demoCatalog.products)
-      ? demoCatalog.products
-      : [];
-
-    const categories = demoCategoryNames.map((name, index) => ({
-      id: String(index + 1),
-      name: normalizeText(name),
-      status: true
-    }));
-    const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
-    const products = demoProductsRaw
-      .map((item) => normalizeProduct(item, categoryMap))
-      .filter((item) => item.status)
-      .map((item, index) => ({
-        ...item,
-        stock: Number.isFinite(Number(item.stock)) ? Number(item.stock) : 40 - (index % 5) * 4
-      }));
-
-    const users = [
-      {
-        id: 'demo-customer',
-        name: 'Demo',
-        lastname: 'User',
-        email: 'demo.customer@foodstack.local',
-        phoneNumber: '0000000000',
-        role: 'customer',
-        status: true,
-        createdAt: nowIso
-      }
-    ];
-
-    const demoOrders = [
-      {
-        id: '5001',
-        displayId: 'ORD-5001',
-        userId: 'demo-customer',
-        total: 25.47,
-        status: 'completed',
-        createdAt: nowIso
-      },
-      {
-        id: '5002',
-        displayId: 'ORD-5002',
-        userId: 'demo-customer',
-        total: 13.98,
-        status: 'preparing',
-        createdAt: nowIso
-      },
-      {
-        id: '5003',
-        displayId: 'ORD-5003',
-        userId: 'demo-customer',
-        total: 32.5,
-        status: 'pending',
-        createdAt: nowIso
-      }
-    ];
-
-    const topProducts = products.slice(0, 4);
-    const orderProducts = topProducts.map((product, index) => ({
-      id: `OP-DEMO-${index + 1}`,
-      orderId: demoOrders[index % demoOrders.length].id,
-      productId: product.id,
-      quantity: index + 1,
-      price: product.price,
-      status: true,
-      createdAt: nowIso
-    }));
-
-    const ingredients = [
-      {
-        id: 'demo-ing-1',
-        name: 'Cheddar Cheese',
-        extraPrice: 1.5,
-        status: true
-      },
-      {
-        id: 'demo-ing-2',
-        name: 'Bacon',
-        extraPrice: 2.0,
-        status: true
-      }
-    ];
-
-    const productIngredients = products.slice(0, 2).map((product, index) => ({
-      id: `PI-DEMO-${index + 1}`,
-      productId: product.id,
-      ingredientId: ingredients[index % ingredients.length].id,
-      maxIngredients: 3,
-      defaultIngredients: index === 0,
-      status: true
-    }));
-
-    return {
-      categories: categories,
-      products: products,
-      users: users,
-      orders: demoOrders,
-      orderProducts: orderProducts,
-      ingredients: ingredients,
-      productIngredients: productIngredients
-    };
-  }
-
   async function loadBaseData() {
     const api = window.FOODSTACK_API;
-    const devFallback = canUseDevFallback();
 
     const fallbackResult = {
       items: [],
@@ -697,15 +606,32 @@
     ].filter(Boolean);
     const dedupedWarnings = Array.from(new Set(warnings));
 
+    const seenCategoryNames = new Set();
     let categories = categoriesResult.items
       .map(normalizeCategory)
-      .filter((item) => item.status);
+      .filter((item) => item.status && item.name)
+      .filter((item) => {
+        if (seenCategoryNames.has(item.name)) {
+          return false;
+        }
+        seenCategoryNames.add(item.name);
+        return true;
+      });
 
     const categoryMap = new Map(categories.map((item) => [item.id, item.name]));
 
     let products = productsResult.items
       .map((item) => normalizeProduct(item, categoryMap))
       .filter((item) => item.status);
+
+    const uncategorizedCount = products.filter(
+      (item) => normalizeText(item.category).toLowerCase() === 'uncategorized'
+    ).length;
+    if (uncategorizedCount > 0) {
+      warnings.push(
+        `${uncategorizedCount} active product(s) use invalid or missing catalog categories.`
+      );
+    }
 
     let users = usersResult.items
       .map(normalizeUser)
@@ -726,43 +652,6 @@
     let productIngredients = productIngredientsResult.items
       .map(normalizeProductIngredient)
       .filter((item) => item.status);
-
-    if (
-      devFallback &&
-      (!products.length || !categories.length || !users.length || !orders.length)
-    ) {
-      const demo = buildDemoFallbackData();
-
-      if (!categories.length) {
-        categories = demo.categories;
-      }
-
-      if (!products.length) {
-        products = demo.products;
-      }
-
-      if (!users.length) {
-        users = demo.users;
-      }
-
-      if (!orders.length) {
-        orders = demo.orders;
-      }
-
-      if (!orderProducts.length) {
-        orderProducts = demo.orderProducts;
-      }
-
-      if (!ingredients.length) {
-        ingredients = demo.ingredients;
-      }
-
-      if (!productIngredients.length) {
-        productIngredients = demo.productIngredients;
-      }
-
-      warnings.push('Using local demo fallback dataset in admin views.');
-    }
 
     return {
       categories: categories,
