@@ -1,9 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
   const api = window.FOODSTACK_API;
+  const runtime = window.FOODSTACK_RUNTIME || {};
 
   const loginForm = document.getElementById('customer-login-form');
   const signupForm = document.getElementById('customer-signup-form');
   const authMessage = document.getElementById('auth-inline-msg');
+  const demoButton = document.getElementById('auth-demo-btn');
 
   function showMessage(text, isSuccess) {
     if (!authMessage) {
@@ -59,6 +61,26 @@ document.addEventListener('DOMContentLoaded', () => {
     window.localStorage.setItem('foodstack-user', JSON.stringify(user));
     window.localStorage.setItem('user', JSON.stringify(user));
     window.localStorage.removeItem('foodstack-admin-session');
+    if (typeof runtime.setDemoMode === 'function') {
+      runtime.setDemoMode(false);
+    }
+  }
+
+  function startDemoSession() {
+    if (typeof runtime.startDemoCustomerSession === 'function') {
+      return runtime.startDemoCustomerSession();
+    }
+
+    const payload = {
+      id: 'demo-customer',
+      name: 'Demo',
+      lastname: 'User',
+      email: 'demo.customer@foodstack.local',
+      role: 'customer'
+    };
+
+    saveCustomerSession(payload);
+    return payload;
   }
 
   function parseNameParts(fullName) {
@@ -141,6 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
             signedAt: new Date().toISOString()
           })
         );
+        if (typeof runtime.setDemoMode === 'function') {
+          runtime.setDemoMode(false);
+        }
 
         showMessage('Staff account detected. Redirecting to staff home...', true);
         window.setTimeout(() => {
@@ -157,7 +182,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 300);
     } catch (error) {
       const details = describeAuthError(error, 'Login');
-      showMessage(details, false);
+      const hint =
+        runtime.ALLOW_DEMO_AUTH || runtime.DEV_FALLBACK_MODE
+          ? ' You can continue in Demo Mode.'
+          : '';
+      showMessage(`${details}${hint}`, false);
     } finally {
       setSubmitting(submitButton, false);
     }
@@ -215,6 +244,9 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       showMessage('Account created. Redirecting to login...', true);
+      if (typeof runtime.setDemoMode === 'function') {
+        runtime.setDemoMode(false);
+      }
       form.reset();
 
       window.setTimeout(() => {
@@ -222,7 +254,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 550);
     } catch (error) {
       const details = describeAuthError(error, 'Signup');
-      showMessage(details, false);
+      const hint =
+        runtime.ALLOW_DEMO_AUTH || runtime.DEV_FALLBACK_MODE
+          ? ' You can continue in Demo Mode.'
+          : '';
+      showMessage(`${details}${hint}`, false);
     } finally {
       setSubmitting(submitButton, false);
     }
@@ -236,4 +272,24 @@ document.addEventListener('DOMContentLoaded', () => {
     signupForm.addEventListener('submit', handleSignup);
   }
 
+  if (demoButton) {
+    const canUseDemoAuth = Boolean(runtime.ALLOW_DEMO_AUTH);
+    if (!canUseDemoAuth) {
+      demoButton.hidden = true;
+      demoButton.setAttribute('aria-hidden', 'true');
+    }
+
+    demoButton.addEventListener('click', () => {
+      if (!canUseDemoAuth) {
+        showMessage('Demo mode is disabled. Enable it in runtime-config.js', false);
+        return;
+      }
+
+      startDemoSession();
+      showMessage('Demo session started. Redirecting...', true);
+      window.setTimeout(() => {
+        window.location.href = 'home.html';
+      }, 250);
+    });
+  }
 });

@@ -26,7 +26,7 @@ def _normalize_name(raw_name):
         raise ValueError("name must be between 2 and 60 characters.")
     if name.lower() in FORBIDDEN_INGREDIENT_NAMES:
         raise ValueError("name is not allowed.")
-    if not re.fullmatch(r"[A-Za-z0-9\u00C0-\u024F][A-Za-z0-9\u00C0-\u024F .,&'/-]*", name):
+    if not re.fullmatch(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9 .,&'/-]*", name):
         raise ValueError("name has invalid characters.")
     return name
 
@@ -55,6 +55,7 @@ def _normalize_status(raw_status, required=False, fallback=1):
     return status
 
 
+# GET ALL
 @ingredient_bp.route('/ingredients', methods=['GET'])
 def get_ingredients():
     try:
@@ -66,6 +67,7 @@ def get_ingredients():
         return _json_error(str(e), 500)
 
 
+# GET BY ID
 @ingredient_bp.route('/ingredient/<int:ingredient_id>', methods=['GET'])
 @ingredient_bp.route('/ingredients/<int:ingredient_id>', methods=['GET'])
 def get_ingredient_by_id(ingredient_id):
@@ -81,6 +83,7 @@ def get_ingredient_by_id(ingredient_id):
         return _json_error(str(e), 500)
 
 
+# POST
 @ingredient_bp.route('/ingredient', methods=['POST'])
 @ingredient_bp.route('/ingredients', methods=['POST'])
 @require_auth
@@ -115,6 +118,7 @@ def create_ingredient():
         return _json_error(str(e), 500)
 
 
+# PUT
 @ingredient_bp.route('/ingredient/<int:ingredient_id>', methods=['PUT'])
 @ingredient_bp.route('/ingredients/<int:ingredient_id>', methods=['PUT'])
 @require_auth

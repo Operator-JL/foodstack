@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const data = window.FOODSTACK_DATA;
   const api = window.FOODSTACK_API;
+  const runtime = window.FOODSTACK_RUNTIME || {};
 
   if (!data) {
     return;
@@ -187,18 +188,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           const subtotal = item.qty * item.price;
           const name = escapeHtml(item.name);
           const description = escapeHtml(item.description);
+          const image = escapeHtml(item.image);
           const itemId = escapeHtml(item.id);
-          const resolvedImage =
-            typeof data.resolveProductImage === 'function'
-              ? data.resolveProductImage(item)
-              : { src: item.image || 'assets/images/logo-foodstack.png' };
-          const image = escapeHtml(resolvedImage.src);
 
           return `
             <article class="cart-item">
               <img
                 class="cart-item__image"
-                data-product-id="${itemId}"
                 src="${image}"
                 alt="${name}"
                 loading="lazy"
@@ -222,17 +218,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           `;
         })
         .join('');
-
-      if (typeof data.bindProductImage === 'function') {
-        const productMap = new Map(items.map((item) => [String(item.id), item]));
-        list.querySelectorAll('.cart-item__image[data-product-id]').forEach((imageNode) => {
-          const productId = imageNode.getAttribute('data-product-id') || '';
-          const product = productMap.get(String(productId));
-          if (product) {
-            data.bindProductImage(imageNode, product);
-          }
-        });
-      }
 
       bindActions();
 
@@ -743,6 +728,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       await loadUserOrderHistory();
     } catch (error) {
+      if (runtime.DEV_FALLBACK_MODE) {
+        appendLocalOrderLog({
+          ...localBase,
+          status: 'local-only',
+          details: 'API unavailable. Local record created for development tracking.'
+        });
+
+        showInlineMessage(
+          'API unavailable. Local order log was saved, cart kept for safe retry.'
+        );
+        await loadUserOrderHistory();
+        return;
+      }
+
       showInlineMessage(
         error instanceof Error ? error.message : 'Could not submit your order.'
       );
@@ -762,9 +761,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     showInlineMessage('Loading cart data...');
-    await data.loadCatalog();
+    const result = await data.loadCatalog();
     render();
-    showInlineMessage('');
+    showInlineMessage(result && result.source === 'demo' ? result.warning : '');
     await loadUserOrderHistory();
   } catch (error) {
     if (list) {

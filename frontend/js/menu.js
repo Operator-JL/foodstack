@@ -153,16 +153,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         .map((product) => {
           const name = escapeHtml(product.name);
           const description = escapeHtml(product.description);
+          const image = escapeHtml(product.image);
           const productId = escapeHtml(product.id);
-          const resolvedImage = data.resolveProductImage(product);
-          const image = escapeHtml(resolvedImage.src);
 
           return `
             <article class="product-card">
               <div class="product-image">
                 <img
                   class="product-card__image"
-                  data-product-id="${productId}"
                   src="${image}"
                   alt="${name}"
                   loading="lazy"
@@ -187,17 +185,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         })
         .join('');
 
-      if (typeof data.bindProductImage === 'function') {
-        const productMap = new Map(items.map((item) => [String(item.id), item]));
-        grid.querySelectorAll('.product-card__image[data-product-id]').forEach((imageNode) => {
-          const productId = imageNode.getAttribute('data-product-id') || '';
-          const product = productMap.get(String(productId));
-          if (product) {
-            data.bindProductImage(imageNode, product);
-          }
-        });
-      }
-
       if (!isStaffContext) {
         document.querySelectorAll('[data-add-id]').forEach((button) => {
           button.addEventListener('click', () => {
@@ -221,7 +208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderEmptyGrid('Fetching products and categories from API.');
     }
 
-    await data.loadCatalog();
+    const result = await data.loadCatalog();
 
     availableCategories = ['All'].concat(data.getCategories());
 
@@ -234,16 +221,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderTabs();
     renderGrid();
 
-    const warning = data.getCatalogWarning();
-    if (isStaffContext && warning) {
-      showMessage(`Staff mode: cart and purchase actions are disabled. ${warning}`);
-      return;
-    }
-    if (isStaffContext) {
+    if (result && result.source === 'demo') {
+      showMessage(result.warning || 'Using local demo catalog.');
+    } else if (isStaffContext) {
       showMessage('Staff mode: cart and purchase actions are disabled.');
-      return;
+    } else {
+      showMessage('');
     }
-    showMessage(warning || '');
   }
 
   try {

@@ -2,15 +2,15 @@
 
 Proyecto full-stack con:
 - Backend API en Flask + SQL Server.
-- Frontend estatico (HTML/CSS/JS) servido por Flask.
+- Frontend estático (HTML/CSS/JS) servido por Flask en producción.
 
-## 1) Requisitos locales
+## 1. Requisitos locales
 
 - Python 3.11+
 - ODBC Driver 18 for SQL Server
-- SQL Server o Azure SQL con el esquema esperado
+- SQL Server / Azure SQL con el esquema esperado por los modelos
 
-## 2) Instalacion local
+## 2. Instalación local
 
 ```bash
 python -m venv .venv
@@ -18,12 +18,12 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## 3) Configuracion de entorno
+## 3. Configuración de entorno
 
-1. Crear `.env` a partir de `.env.example`.
-2. Completar credenciales reales de base de datos.
+1. Crea `.env` a partir de `.env.example`.
+2. Completa credenciales reales de base de datos.
 
-Variables minimas:
+Variables mínimas:
 - `SQL_SERVER`
 - `DATABASE`
 - `SQL_USER`
@@ -31,9 +31,9 @@ Variables minimas:
 - `JWT_SECRET_KEY` (recomendado)
 - `FLASK_SECRET_KEY` (recomendado)
 
-## 4) Ejecucion
+## 4. Ejecución
 
-### Backend + frontend (recomendado)
+### Backend + frontend (modo integrado recomendado)
 
 ```bash
 python app.py
@@ -43,59 +43,91 @@ Rutas principales:
 - Frontend: `http://127.0.0.1:5000/`
 - API health: `http://127.0.0.1:5000/api/test`
 
+Con este modo, frontend y API comparten origen y la sesión autenticada funciona mejor.
+
 ### Frontend con Live Server (opcional)
 
-Se puede abrir `frontend/` con Live Server, pero para QA real se recomienda frontend servido por Flask.
+Puedes abrir `frontend/` con Live Server, pero:
+- se recomienda apuntar API a backend local o Azure mediante `runtime-config.js`
+- para QA real, preferir frontend servido por Flask para evitar problemas de sesión/cookies cross-origin
 
-## 5) Configuracion del frontend (local vs Azure)
+## 5. Configuración del frontend (local vs Azure + demo mode)
 
 Archivo central: `frontend/js/runtime-config.js`
 
-Parametros:
-- `API_BASE_URL`: vacio = resolucion automatica por origen.
+Parámetros:
+- `API_BASE_URL`: vacío = resolución automática.
+- `DEV_FALLBACK_MODE`: `true/false` (fallback de datos demo).
+- `ALLOW_DEMO_AUTH`: `true/false` (botones de demo login).
 - `REQUEST_CREDENTIALS`: `same-origin` recomendado.
 
-Cambio rapido de API desde consola del navegador:
+### Cambiar API rápidamente
+
+Opción A: editar `API_BASE_URL` en `runtime-config.js`.
+
+Opción B: desde consola del navegador:
 
 ```js
-localStorage.setItem('foodstack-api-base-url', 'https://TU-API.azurewebsites.net/api');
-location.reload();
+localStorage.setItem('foodstack-api-base-url', 'https://TU-API.azurewebsites.net/api')
+location.reload()
 ```
 
-Volver a automatico:
+Volver a automático:
 
 ```js
-localStorage.removeItem('foodstack-api-base-url');
-location.reload();
+localStorage.removeItem('foodstack-api-base-url')
+location.reload()
 ```
 
-Nota: el flujo demo/test fue neutralizado. El catalogo opera contra API real.
+### Activar/desactivar demo explícitamente
 
-## 6) Seguridad y autenticacion (resumen)
+```js
+localStorage.setItem('foodstack-demo-mode', '1') // activar
+localStorage.setItem('foodstack-demo-mode', '0') // desactivar
+location.reload()
+```
 
-- Login devuelve JWT (tambien en cookie `auth_token`).
-- El frontend adjunta `Authorization: Bearer <token>` cuando existe token.
-- Endpoints sensibles requieren autenticacion y rol.
-- Signup publico fuerza rol `customer` en backend.
-- Vistas staff validan sesion con backend (`/api/session`).
+También puedes usar query string:
+- `?demo=1` activa
+- `?demo=0` desactiva
 
-## 7) Azure App Service
+## 6. Seguridad y autenticación (resumen)
 
-- La raiz `/` sirve `frontend/login.html`.
-- Los endpoints API siguen bajo `/api/*`.
+- Login devuelve JWT (también en cookie `auth_token`).
+- El frontend adjunta `Authorization: Bearer <token>` automáticamente cuando existe.
+- Endpoints sensibles (órdenes/admin) requieren autenticación.
+- Signup público fuerza rol `customer` en backend (no confía en rol enviado por cliente).
+- Vistas staff validan sesión con backend (`/api/session`) y no solo con `localStorage`.
 
-## 8) Smoke test minimo
+## 7. Azure App Service
 
-1. Abrir `/` y confirmar login.
-2. Probar `GET /api/test`.
+La raíz `/` ahora sirve `frontend/login.html` (ya no texto plano).
+Los endpoints siguen bajo `/api/*`.
+
+Verifica en Azure:
+- App Settings con variables de entorno SQL/JWT/FLASK.
+- Logs de app para errores de conexión SQL.
+- Deploy del repositorio completo (incluye carpeta `frontend`).
+
+## 8. Checklist mínimo de smoke test
+
+1. Abrir `/` y confirmar que carga login de FoodStack.
+2. `GET /api/test` -> status ok.
 3. Login customer -> `home.html`.
 4. Login staff -> `staff-home.html`.
 5. Crear orden en `cart.html`.
 6. Cambiar status de orden en dashboard staff.
 7. Probar `PUT /api/user/<id>`.
 
-## 9) SQL de auditoria/limpieza de catalogo
+## 9. AuditorÃ­a/limpieza de datos maestros (SQL)
 
-Scripts manuales (no auto-ejecutables):
+Script sugerido (manual, no se ejecuta automÃ¡ticamente):
+
 - `docs/sql/master_data_audit_cleanup.sql`
-- `docs/sql/catalog_cleanup_audit.sql`
+
+Incluye consultas para:
+- categorÃ­as y productos inconsistentes
+- precios sospechosos
+- ingredientes duplicados/basura
+- relaciones huÃ©rfanas en `Product_Ingredients`
+- ejemplos controlados de correcciÃ³n (comentados)

@@ -24,13 +24,13 @@
   color: #2d6b34;
 }
 
-.admin-login-hint {
+.admin-demo-hint {
   margin: 0.2rem 0 0;
   color: #7b6b5d;
   font-size: 0.78rem;
 }
 
-.admin-login-hint code {
+.admin-demo-hint code {
   font-family: Consolas, "Courier New", monospace;
   background: rgba(255, 255, 255, 0.75);
   border: 1px solid #edceb0;

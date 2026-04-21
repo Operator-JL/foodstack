@@ -1,6 +1,7 @@
 (function () {
   const AUTH_TOKEN_KEY = 'foodstack-auth-token';
   const API_BASE_STORAGE_KEY = 'foodstack-api-base-url';
+  const DEMO_MODE_STORAGE_KEY = 'foodstack-demo-mode';
 
   function normalizeText(value) {
     return String(value || '').trim();
@@ -39,6 +40,27 @@
       return '';
     }
     return text.replace(/\/+$/, '');
+  }
+
+  function parseDemoModeFromUrl() {
+    const params = new URLSearchParams(window.location.search || '');
+    const flag = params.get('demo');
+    if (flag == null) {
+      return null;
+    }
+
+    const enabled = normalizeBoolean(flag, false);
+    window.localStorage.setItem(DEMO_MODE_STORAGE_KEY, enabled ? '1' : '0');
+    return enabled;
+  }
+
+  function readStoredDemoMode() {
+    const fromUrl = parseDemoModeFromUrl();
+    if (typeof fromUrl === 'boolean') {
+      return fromUrl;
+    }
+
+    return normalizeBoolean(window.localStorage.getItem(DEMO_MODE_STORAGE_KEY), false);
   }
 
   function resolveApiBaseUrl(runtimeOverride) {
@@ -119,9 +141,16 @@
   }
 
   const RUNTIME_OVERRIDE = window.FOODSTACK_RUNTIME_OVERRIDES || {};
+  const DEMO_MODE = readStoredDemoMode();
 
   const RUNTIME_CONFIG = {
     API_BASE_URL: resolveApiBaseUrl(RUNTIME_OVERRIDE),
+    DEV_FALLBACK_MODE: Object.hasOwn(RUNTIME_OVERRIDE, 'DEV_FALLBACK_MODE')
+      ? normalizeBoolean(RUNTIME_OVERRIDE.DEV_FALLBACK_MODE, false)
+      : DEMO_MODE,
+    ALLOW_DEMO_AUTH: Object.hasOwn(RUNTIME_OVERRIDE, 'ALLOW_DEMO_AUTH')
+      ? normalizeBoolean(RUNTIME_OVERRIDE.ALLOW_DEMO_AUTH, false)
+      : DEMO_MODE,
     REQUEST_CREDENTIALS: normalizeCredentials(
       RUNTIME_OVERRIDE.REQUEST_CREDENTIALS,
       'same-origin'
@@ -195,6 +224,52 @@
 
   function runtimeEnabled(flagName) {
     return Boolean(RUNTIME_CONFIG[flagName]);
+  }
+
+  function setDemoMode(enabled) {
+    const value = normalizeBoolean(enabled, false);
+    window.localStorage.setItem(DEMO_MODE_STORAGE_KEY, value ? '1' : '0');
+    return value;
+  }
+
+  function startDemoCustomerSession(overrides) {
+    const payload = {
+      id: 'demo-customer',
+      name: 'Demo',
+      lastname: 'User',
+      email: 'demo.customer@foodstack.local',
+      role: 'customer',
+      ...(overrides && typeof overrides === 'object' ? overrides : {})
+    };
+
+    window.localStorage.setItem('foodstack-user', JSON.stringify(payload));
+    window.localStorage.setItem('user', JSON.stringify(payload));
+    window.localStorage.removeItem('foodstack-admin-session');
+    clearAuthToken();
+    setDemoMode(true);
+    return payload;
+  }
+
+  function startDemoStaffSession(overrides) {
+    const user = {
+      id: 'demo-staff',
+      name: 'FoodStack Demo Staff',
+      email: 'demo.staff@foodstack.local',
+      role: 'admin',
+      ...(overrides && typeof overrides === 'object' ? overrides : {})
+    };
+
+    window.localStorage.setItem(
+      'foodstack-admin-session',
+      JSON.stringify({
+        user: user,
+        signedAt: new Date().toISOString(),
+        isDemo: true
+      })
+    );
+    clearAuthToken();
+    setDemoMode(true);
+    return user;
   }
 
   const api = {
@@ -297,6 +372,9 @@
   window.FOODSTACK_RUNTIME = {
     ...RUNTIME_CONFIG,
     isEnabled: runtimeEnabled,
+    setDemoMode: setDemoMode,
+    startDemoCustomerSession: startDemoCustomerSession,
+    startDemoStaffSession: startDemoStaffSession,
     readAuthToken: readAuthToken,
     clearAuthToken: clearAuthToken,
     saveAuthToken: saveAuthToken

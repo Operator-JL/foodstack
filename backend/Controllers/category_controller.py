@@ -12,19 +12,6 @@ FORBIDDEN_CATEGORY_NAMES = {
     "test", "demo", "tmp", "temp", "sample", "foo", "bar", "lorem", "ipsum",
     "none", "null", "n/a", "jose"
 }
-REAL_CATALOG_CATEGORY_MAP = {
-    "burger": "Burgers",
-    "burgers": "Burgers",
-    "taco": "Tacos",
-    "tacos": "Tacos",
-    "burrito": "Burritos",
-    "burritos": "Burritos",
-    "drink": "Drinks",
-    "drinks": "Drinks",
-    "side": "Sides",
-    "sides": "Sides"
-}
-REAL_CATALOG_ORDER = ["Burgers", "Tacos", "Burritos", "Drinks", "Sides"]
 
 
 def _json_error(message, http_status=400, status=1):
@@ -42,64 +29,22 @@ def _normalize_category_name(raw_name):
         raise ValueError("name must be between 3 and 40 characters.")
     if name.lower() in FORBIDDEN_CATEGORY_NAMES:
         raise ValueError("name is not allowed.")
-    if not re.fullmatch(r"[A-Za-z0-9\u00C0-\u024F][A-Za-z0-9\u00C0-\u024F &'/-]*", name):
+    if not re.fullmatch(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9 &'/-]*", name):
         raise ValueError("name has invalid characters.")
+    return name
 
-    key = re.sub(r"[^a-z0-9]+", "", name.lower())
-    normalized = REAL_CATALOG_CATEGORY_MAP.get(key) or REAL_CATALOG_CATEGORY_MAP.get(name.lower())
-    if not normalized:
-        raise ValueError("name must be one of: Burgers, Tacos, Burritos, Drinks, Sides.")
-
-    return normalized
-
-
-def _normalize_status(value):
-    try:
-        status = int(value)
-    except Exception:
-        raise ValueError("status must be numeric.")
-    if status not in (0, 1):
-        raise ValueError("status must be 0 or 1.")
-    return status
-
-
+#GET
 @category_bp.route('/categories', methods=['GET'])
 def get_categories():
     try:
-        items = [json.loads(c.to_json()) for c in Category.get_all()]
-        filtered = []
-        seen_names = set()
-
-        for row in items:
-            if int(row.get("status", 0)) != 1:
-                continue
-
-            raw_name = str(row.get("name", "")).strip()
-            key = re.sub(r"[^a-z0-9]+", "", raw_name.lower())
-            normalized = REAL_CATALOG_CATEGORY_MAP.get(key) or REAL_CATALOG_CATEGORY_MAP.get(raw_name.lower())
-            if not normalized:
-                continue
-            if normalized in seen_names:
-                continue
-
-            row["name"] = normalized
-            filtered.append(row)
-            seen_names.add(normalized)
-
-        filtered.sort(
-            key=lambda row: REAL_CATALOG_ORDER.index(row["name"])
-            if row.get("name") in REAL_CATALOG_ORDER
-            else len(REAL_CATALOG_ORDER)
-        )
-
         return jsonify({
             "status": 0,
-            "data": filtered
+            "data": [json.loads(c.to_json()) for c in Category.get_all()]
         })
     except Exception as e:
         return _json_error(str(e), 500)
 
-
+#GET by id
 @category_bp.route('/category/<int:category_id>', methods=['GET'])
 @category_bp.route('/categories/<int:category_id>', methods=['GET'])
 def get_category_by_id(category_id):
@@ -114,7 +59,7 @@ def get_category_by_id(category_id):
     except Exception as e:
         return _json_error(str(e), 500)
 
-
+#POST
 @category_bp.route('/category', methods=['POST'])
 @category_bp.route('/categories', methods=['POST'])
 @require_auth
@@ -126,15 +71,19 @@ def create_category():
             return _json_error("JSON body is required.", 400)
 
         c = Category()
+
         name = _normalize_category_name(data.get("name"))
 
         if Category.exists_by_name(name):
             return _json_error("Category name already exists.", 409)
 
-        status = _normalize_status(data.get("status", 1))
+        status = int(data.get("status", 1))
+        if status not in (0, 1):
+            return _json_error("status must be 0 or 1.", 400)
 
         c.name = name
         c.status = status
+
         c.add()
 
         return jsonify({
@@ -147,6 +96,7 @@ def create_category():
         return _json_error(str(e), 500)
 
 
+# PUT
 @category_bp.route('/category/<int:category_id>', methods=['PUT'])
 @category_bp.route('/categories/<int:category_id>', methods=['PUT'])
 @require_auth
@@ -168,7 +118,10 @@ def update_category(category_id):
             c.name = name
 
         if "status" in data:
-            c.status = _normalize_status(data.get("status"))
+            status = int(data.get("status"))
+            if status not in (0, 1):
+                return _json_error("status must be 0 or 1.", 400)
+            c.status = status
 
         c.update()
 
