@@ -167,3 +167,48 @@ class Ingredient:
 
         except Exception as ex:
             raise ex
+
+    # EXISTS BY ID
+    # -------------------------
+    @staticmethod
+    def exists_by_id(ingredient_id):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT 1 FROM Ingredients WHERE Id = ?",
+                    ingredient_id
+                )
+                return cursor.fetchone() is not None
+        except Exception as ex:
+            raise ex
+
+    # EXISTS BY NAME (CASE/SPACE INSENSITIVE)
+    # -------------------------
+    @staticmethod
+    def exists_by_name(name, exclude_id=None):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                if exclude_id is None:
+                    cursor.execute(
+                        """
+                        SELECT 1
+                        FROM Ingredients
+                        WHERE LOWER(LTRIM(RTRIM(Name))) = LOWER(LTRIM(RTRIM(?)))
+                        """,
+                        name
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        SELECT 1
+                        FROM Ingredients
+                        WHERE LOWER(LTRIM(RTRIM(Name))) = LOWER(LTRIM(RTRIM(?)))
+                          AND Id <> ?
+                        """,
+                        (name, exclude_id)
+                    )
+                return cursor.fetchone() is not None
+        except Exception as ex:
+            raise ex

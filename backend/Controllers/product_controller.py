@@ -1,13 +1,90 @@
-from flask import jsonify, Blueprint, request
+import re
+
+from flask import Blueprint, jsonify, request
+
+from backend.Models.category import Category
 from backend.Models.product import Product, RecordNotFoundException
-from backend.Infrastructure.SQLServerConnection import SQLServerConnection
 from ..Security.Auth import require_auth, require_roles
 
 product_bp = Blueprint('product_bp', __name__)
 STAFF_ROLES = {"admin", "staff", "manager"}
+MIN_PRICE = 0.5
+MAX_PRICE = 99.99
+
+
+def _json_error(message, http_status=400, status=1):
+    return jsonify({
+        "status": status,
+        "errorMessage": message
+    }), http_status
+
+
+def _normalize_name(raw_name):
+    name = re.sub(r"\s+", " ", str(raw_name or "").strip())
+    if len(name) < 3 or len(name) > 80:
+        raise ValueError("name must be between 3 and 80 characters.")
+    if not re.fullmatch(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9 .,&'/-]*", name):
+        raise ValueError("name has invalid characters.")
+    return name
+
+
+def _normalize_description(raw_description, required=False):
+    description = re.sub(r"\s+", " ", str(raw_description or "").strip())
+    if not description and not required:
+        return ""
+    if not description:
+        raise ValueError("description is required.")
+    if len(description) < 8 or len(description) > 500:
+        raise ValueError("description must be between 8 and 500 characters.")
+    return description
+
+
+def _normalize_image(raw_image, required=False):
+    image = str(raw_image or "").strip()
+    if not image and not required:
+        return ""
+    if not image:
+        raise ValueError("image is required.")
+    if len(image) > 500:
+        raise ValueError("image is too long.")
+    return image
+
+
+def _normalize_price(raw_price):
+    try:
+        price = float(raw_price)
+    except Exception:
+        raise ValueError("price must be numeric.")
+    if price < MIN_PRICE or price > MAX_PRICE:
+        raise ValueError(f"price must be between {MIN_PRICE:.2f} and {MAX_PRICE:.2f}.")
+    return round(price, 2)
+
+
+def _normalize_status(raw_status, required=False, fallback=1):
+    if raw_status is None and not required:
+        return fallback
+    try:
+        status = int(raw_status)
+    except Exception:
+        raise ValueError("status must be numeric.")
+    if status not in (0, 1):
+        raise ValueError("status must be 0 or 1.")
+    return status
+
+
+def _normalize_category_id(raw_category_id):
+    try:
+        category_id = int(raw_category_id)
+    except Exception:
+        raise ValueError("category_id must be numeric.")
+    if category_id <= 0:
+        raise ValueError("category_id must be a positive integer.")
+    if not Category.exists_by_id(category_id):
+        raise LookupError("category_id does not exist.")
+    return category_id
+
 
 # GET ALL
-# -------------------------
 @product_bp.route('/products', methods=['GET'])
 def get_all():
     try:
@@ -16,13 +93,10 @@ def get_all():
             "data": [p.to_dict() for p in Product.get_all()]
         })
     except Exception as e:
-        return jsonify({
-            "status": 1,
-            "errorMessage": str(e)
-        })
+        return _json_error(str(e), 500)
+
 
 # GET BY ID
-# -------------------------
 @product_bp.route('/product/<int:product_id>', methods=['GET'])
 @product_bp.route('/products/<int:product_id>', methods=['GET'])
 def get_product_by_id(product_id):
@@ -32,21 +106,13 @@ def get_product_by_id(product_id):
             "status": 0,
             "data": p.to_dict()
         })
-
     except RecordNotFoundException as e:
-        return jsonify({
-            "status": 1,
-            "errorMessage": str(e)
-        })
-
+        return _json_error(str(e), 404)
     except Exception as e:
-        return jsonify({
-            "status": 1,
-            "errorMessage": str(e)
-        })
+        return _json_error(str(e), 500)
+
 
 # POST
-# -------------------------
 @product_bp.route('/product', methods=['POST'])
 @product_bp.route('/products', methods=['POST'])
 @require_auth
@@ -55,25 +121,15 @@ def create_product():
     try:
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
-            return jsonify({
-                "status": 1,
-                "errorMessage": "JSON body is required."
-            }), 400
-
-        name = str(data.get("name") or "").strip()
-        if not name:
-            return jsonify({
-                "status": 1,
-                "errorMessage": "name is required."
-            }), 400
+            return _json_error("JSON body is required.", 400)
 
         p = Product()
-        p.category_id = data.get("category_id")
-        p.name = name
-        p.description = data.get("description")
-        p.image = data.get("image")
-        p.price = data.get("price")
-        p.status = data.get("status", 1)
+        p.category_id = _normalize_category_id(data.get("category_id"))
+        p.name = _normalize_name(data.get("name"))
+        p.description = _normalize_description(data.get("description"), required=False)
+        p.image = _normalize_image(data.get("image"), required=False)
+        p.price = _normalize_price(data.get("price"))
+        p.status = _normalize_status(data.get("status"), required=False, fallback=1)
 
         new_id = p.add()
 
@@ -84,16 +140,15 @@ def create_product():
                 "id": new_id
             }
         }), 201
-
+    except ValueError as e:
+        return _json_error(str(e), 400)
+    except LookupError as e:
+        return _json_error(str(e), 404)
     except Exception as e:
-        return jsonify({
-            "status": 1,
-            "errorMessage": str(e)
-        }), 500
+        return _json_error(str(e), 500)
 
 
 # PUT
-# -------------------------
 @product_bp.route('/product/<int:product_id>', methods=['PUT'])
 @product_bp.route('/products/<int:product_id>', methods=['PUT'])
 @require_auth
@@ -102,19 +157,24 @@ def update_product(product_id):
     try:
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
-            return jsonify({
-                "status": 1,
-                "errorMessage": "JSON body is required."
-            }), 400
+            return _json_error("JSON body is required.", 400)
+        if not data:
+            return _json_error("At least one field is required for update.", 400)
 
         p = Product(product_id)
 
-        p.category_id = data.get("category_id", p.category_id)
-        p.name = data.get("name", p.name)
-        p.description = data.get("description", p.description)
-        p.image = data.get("image", p.image)
-        p.price = data.get("price", p.price)
-        p.status = data.get("status", p.status)
+        if "category_id" in data:
+            p.category_id = _normalize_category_id(data.get("category_id"))
+        if "name" in data:
+            p.name = _normalize_name(data.get("name"))
+        if "description" in data:
+            p.description = _normalize_description(data.get("description"), required=True)
+        if "image" in data:
+            p.image = _normalize_image(data.get("image"), required=True)
+        if "price" in data:
+            p.price = _normalize_price(data.get("price"))
+        if "status" in data:
+            p.status = _normalize_status(data.get("status"), required=True)
 
         p.update()
 
@@ -122,15 +182,11 @@ def update_product(product_id):
             "status": 0,
             "message": "Product updated successfully"
         }), 200
-
     except RecordNotFoundException as e:
-        return jsonify({
-            "status": 1,
-            "errorMessage": str(e)
-        }), 404
-
+        return _json_error(str(e), 404)
+    except ValueError as e:
+        return _json_error(str(e), 400)
+    except LookupError as e:
+        return _json_error(str(e), 404)
     except Exception as e:
-        return jsonify({
-            "status": 1,
-            "errorMessage": str(e)
-        }), 500
+        return _json_error(str(e), 500)

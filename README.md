@@ -118,3 +118,16 @@ Verifica en Azure:
 5. Crear orden en `cart.html`.
 6. Cambiar status de orden en dashboard staff.
 7. Probar `PUT /api/user/<id>`.
+
+## 9. AuditorÃ­a/limpieza de datos maestros (SQL)
+
+Script sugerido (manual, no se ejecuta automÃ¡ticamente):
+
+- `docs/sql/master_data_audit_cleanup.sql`
+
+Incluye consultas para:
+- categorÃ­as y productos inconsistentes
+- precios sospechosos
+- ingredientes duplicados/basura
+- relaciones huÃ©rfanas en `Product_Ingredients`
+- ejemplos controlados de correcciÃ³n (comentados)

@@ -101,12 +101,14 @@
 
   function normalizeProduct(item, categoryMap) {
     const categoryId = normalizeText(item && item.category_id);
+    const apiCategoryName = normalizeText(item && item.category_name);
     const embeddedCategoryName =
       item && item.category && typeof item.category === 'object'
         ? normalizeText(item.category.name)
         : '';
     const fallbackCategoryName = categoryMap.get(categoryId) || 'Uncategorized';
     const categoryName =
+      apiCategoryName ||
       embeddedCategoryName ||
       normalizeText(item && (item.category_name || item.categoryName || item.category)) ||
       fallbackCategoryName;

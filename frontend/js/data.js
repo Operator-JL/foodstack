@@ -151,6 +151,11 @@
   }
 
   function mapCategoryName(product, categoryMap) {
+    const apiCategoryName = normalizeText(product && product.category_name);
+    if (apiCategoryName) {
+      return apiCategoryName;
+    }
+
     if (product && product.category && typeof product.category === 'object') {
       const embeddedName = normalizeText(product.category.name);
 

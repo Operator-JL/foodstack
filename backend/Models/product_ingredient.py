@@ -1,6 +1,6 @@
 import json
 from ..Infrastructure.SQLServerConnection import *
-from .ingredient import Ingredient
+from .ingredient import Ingredient, RecordNotFoundException as IngredientNotFoundException
  
 class RecordNotFoundException(Exception):
     pass
@@ -136,8 +136,10 @@ class ProductIngredient:
         try:
             pi = ProductIngredient()
             pi.load_by_id(id, conn)
-
-            ingredient = Ingredient(pi.ingredient_id)
+            try:
+                ingredient_payload = Ingredient(pi.ingredient_id).to_dict()
+            except IngredientNotFoundException:
+                ingredient_payload = None
  
             return {
                 "id": pi.id,
@@ -148,7 +150,7 @@ class ProductIngredient:
                 "status": pi.status,
                 "created_at": pi.created_at.isoformat() if pi.created_at else None,
 
-                "ingredient": ingredient.to_dict()
+                "ingredient": ingredient_payload
             }
  
         except Exception as ex:
@@ -170,8 +172,10 @@ class ProductIngredient:
  
             for row in cursor.fetchall():
                 pi = ProductIngredient(*row)
- 
-                ingredient = Ingredient(pi.ingredient_id)
+                try:
+                    ingredient_payload = Ingredient(pi.ingredient_id).to_dict()
+                except IngredientNotFoundException:
+                    ingredient_payload = None
  
                 results.append({
                     "id": pi.id,
@@ -182,7 +186,7 @@ class ProductIngredient:
                     "status": pi.status,
                     "created_at": pi.created_at.isoformat() if pi.created_at else None,
 
-                    "ingredient": ingredient.to_dict()
+                    "ingredient": ingredient_payload
                 })
  
         except Exception as ex:
@@ -276,3 +280,32 @@ class ProductIngredient:
             "status": self._status,
             "created_at": self._created_at.isoformat() if self._created_at else None
         })
+
+    # EXISTS RELATION
+    # -------------------------
+    @staticmethod
+    def exists_relation(product_id, ingredient_id, exclude_id=None):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                if exclude_id is None:
+                    cursor.execute(
+                        """
+                        SELECT 1
+                        FROM Product_Ingredients
+                        WHERE Product_Id = ? AND Ingredient_Id = ?
+                        """,
+                        (product_id, ingredient_id)
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        SELECT 1
+                        FROM Product_Ingredients
+                        WHERE Product_Id = ? AND Ingredient_Id = ? AND Id <> ?
+                        """,
+                        (product_id, ingredient_id, exclude_id)
+                    )
+                return cursor.fetchone() is not None
+        except Exception as ex:
+            raise ex

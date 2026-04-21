@@ -15,12 +15,14 @@ Categories
 - GET  /api/categories
 - GET  /api/categories/{id}
 - POST /api/categories            (staff only)
+- PUT  /api/categories/{id}       (staff only)
 
 Products
 - GET  /api/products
 - GET  /api/products/{id}
 - POST /api/products              (staff only)
 - PUT  /api/products/{id}         (staff only)
+- Response includes: `category_id`, `category_name`, `ingredient_links`
 
 Ingredients
 - GET  /api/ingredients
