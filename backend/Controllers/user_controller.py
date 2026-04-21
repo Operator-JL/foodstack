@@ -57,7 +57,6 @@ def create_user():
         u.email = data.get("email")
         u.password = data.get("password")
 
-        # REQUIRED fields for your table
         u.role = data.get("role")
         u.status = 1
 
@@ -121,7 +120,7 @@ def login():
 # -------------------------
 @user_bp.route("/logout", methods=["POST"])
 #@require_auth
- def logout():
+def logout():
     response = jsonify({
         "status": 0,
         "message": "Logged Out"
