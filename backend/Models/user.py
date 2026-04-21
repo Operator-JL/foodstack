@@ -4,7 +4,6 @@ import json
 from ..Infrastructure.SQLServerConnection import *
 from .order import Order
 
-# record not found exception
 class RecordNotFoundException(Exception):
     pass
 
@@ -23,7 +22,7 @@ class User:
         self._status = 1
         self._created_at = None
 
-        # constructors
+        # Constructors
         if len(args) == 1:
             self.load_by_id(args[0])
         elif len(args) == 9:
@@ -121,30 +120,7 @@ class User:
     # METHODS
     # -------------------------
 
-    # GET ORDERS
-    # -------------------------
-    def get_orders(self, conn):
-        try:
-            return Order.get_by_user_id(self._id, conn)
-        except Exception as ex:
-            raise ex
-
-    # DETAILS
-    # -------------------------
-    def details(self, conn):
-        self.load_by_id(self._id)
-
-        orders = self.get_orders(conn)
-
-        return {
-            "id": self._id,
-            "name": self._name,
-            "lastname": self._lastname,
-            "email": self._email,
-            "orders": orders 
-        }
-
-    # TO JSON
+    # LOAD BY ID
     # -------------------------
     def load_by_id(self, user_id):
         try:
@@ -216,6 +192,55 @@ class User:
 
         return None
 
+    # GET ORDERS
+    # -------------------------
+    def get_orders(self, conn):
+        try:
+            return Order.get_by_user_id(self._id)
+        except Exception as ex:
+            raise ex
+
+    # DETAILS
+    # -------------------------
+    def details(self, conn):
+        self.load_by_id(self._id)
+        orders = self.get_orders(conn)
+
+        return {
+            "id": self._id,
+            "name": self._name,
+            "lastname": self._lastname,
+            "email": self._email,
+            "orders": orders
+        }
+
+    # TO DICT
+    # -------------------------
+    def to_dict(self):
+        return {
+            "id": self._id,
+            "name": self._name,
+            "lastname": self._lastname,
+            "phoneNumber": self._phoneNumber,
+            "email": self._email,
+            "role": self._role,
+            "status": self._status,
+            "created_at": self._created_at.isoformat() if self._created_at else None
+        }
+
+    # TO JSON
+    # -------------------------
+    def to_json(self):
+        return json.dumps(self.to_dict())
+
+    # CHECK PASSWORD
+    # -------------------------
+    def check_password(self, plain_password):
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            self._password.encode("utf-8")
+        )
+
     # ADD
     # -------------------------
     def add(self):
@@ -224,6 +249,7 @@ class User:
                 cursor = conn.cursor()
                 cursor.execute("""
                     INSERT INTO Users (name, lastname, phone_number, email, password_hash, role, status)
+                    OUTPUT INSERTED.id
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
                     self._name,
@@ -234,49 +260,30 @@ class User:
                     self._role,
                     self._status
                 ))
+
+                self._id = cursor.fetchone()[0]
                 conn.commit()
+
+                return self._id
 
         except Exception as ex:
             raise ex
 
-    # PASSWORD CHECK
-    def check_password(self, plain_password):
-        return bcrypt.checkpw(
-            plain_password.encode("utf-8"),
-            self._password.encode("utf-8")
-        )
-
     # UPDATE
     # -------------------------
     def update(self):
-        if not self._id:
-            raise ValueError("User id is required for update.")
-
-        required_fields = {
-            "name": self._name,
-            "lastname": self._lastname,
-            "phoneNumber": self._phoneNumber,
-            "email": self._email,
-            "role": self._role
-        }
-
-        missing = [key for key, value in required_fields.items() if not str(value or "").strip()]
-        if missing:
-            raise ValueError(f"Missing required field(s): {', '.join(missing)}.")
-
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
                     UPDATE Users
-                    SET name = ?, lastname = ?, phone_number = ?, email = ?, password_hash = ?, role = ?, status = ?
+                    SET name = ?, lastname = ?, phone_number = ?, email = ?, role = ?, status = ?
                     WHERE id = ?
                 """, (
                     self._name,
                     self._lastname,
                     self._phoneNumber,
                     self._email,
-                    self._password,
                     self._role,
                     self._status,
                     self._id
@@ -290,15 +297,25 @@ class User:
         except Exception as ex:
             raise ex
 
-    # TO JSON
-    def to_json(self):
-        return json.dumps({
-            "id": self._id,
-            "name": self._name,
-            "lastname": self._lastname,
-            "phoneNumber": self._phoneNumber,
-            "email": self._email,
-            "role": self._role,
-            "status": self._status,
-            "created_at": str(self._created_at)
-        })
+    # UPDATE PASSWORD
+    # -------------------------
+    def update_password(self):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE Users
+                    SET password_hash = ?
+                    WHERE id = ?
+                """, (
+                    self._password,
+                    self._id
+                ))
+
+                if cursor.rowcount == 0:
+                    raise RecordNotFoundException(f"User with id {self._id} was not found.")
+
+                conn.commit()
+
+        except Exception as ex:
+            raise ex

@@ -1,12 +1,13 @@
 import json
 from ..Infrastructure.SQLServerConnection import *
-
+ 
 class RecordNotFoundException(Exception):
     pass
-
+ 
 # -------------------------
 # ATTRIBUTES
 # -------------------------
+ 
 class Ingredient:
     def __init__(self, *args):
         self._id = 0
@@ -14,56 +15,56 @@ class Ingredient:
         self._extra_price = 0.0
         self._status = 1
         self._created_at = None
-
+ 
         # Constructors
         if len(args) == 1:
             self.load_by_id(args[0])
         elif len(args) == 5:
             self._id, self._name, self._extra_price, self._status, self._created_at = args
-
+ 
     # -------------------------
     # PROPERTIES
     # -------------------------
-
+ 
     @property
     def id(self):
         return self._id
     @id.setter
     def id(self, value):
         self._id = value
-
+ 
     @property
     def name(self):
         return self._name
     @name.setter
     def name(self, value):
         self._name = value
-
+ 
     @property
     def extra_price(self):
         return self._extra_price
     @extra_price.setter
     def extra_price(self, value):
         self._extra_price = value
-
+ 
     @property
     def status(self):
         return self._status
     @status.setter
     def status(self, value):
         self._status = value
-
+ 
     @property
     def created_at(self):
         return self._created_at
     @created_at.setter
     def created_at(self, value):
         self._created_at = value
-
+ 
     # -------------------------
     # METHODS
     # -------------------------
-
+ 
     # LOAD BY ID
     # -------------------------
     def load_by_id(self, ingredient_id):
@@ -75,7 +76,7 @@ class Ingredient:
                     FROM Ingredients
                     WHERE Id = ?
                 """, ingredient_id)
-
+ 
                 row = cursor.fetchone()
                 if row:
                     self._id, self._name, self._extra_price, self._status, self._created_at = row
@@ -83,7 +84,7 @@ class Ingredient:
                     raise RecordNotFoundException(f"Ingredient with id {ingredient_id} was not found.")
         except Exception as e:
             raise e
-
+ 
     # GET ALL
     # -------------------------
     @staticmethod
@@ -102,7 +103,7 @@ class Ingredient:
         except Exception as ex:
             print("error fetching ingredients...", ex)
         return results
-
+ 
     # TO DICT
     # -------------------------
     def to_dict(self):
@@ -113,12 +114,12 @@ class Ingredient:
             "status": self._status,
             "created_at": self._created_at.isoformat() if self._created_at else None
         }
-
+ 
     # TO JSON
     # -------------------------
     def to_json(self):
         return json.dumps(self.to_dict())
-
+ 
     # ADD
     # -------------------------
     def add(self):
@@ -134,15 +135,15 @@ class Ingredient:
                     self._extra_price,
                     self._status
                 ))
-
+ 
                 self._id = cursor.fetchone()[0]
                 conn.commit()
-
+ 
                 return self._id
-
+ 
         except Exception as ex:
             raise ex
-
+ 
     # UPDATE
     # -------------------------
     def update(self):
@@ -159,56 +160,11 @@ class Ingredient:
                     self._status,
                     self._id
                 ))
-
+ 
                 if cursor.rowcount == 0:
                     raise RecordNotFoundException(f"Ingredient with id {self._id} was not found.")
-
+ 
                 conn.commit()
-
-        except Exception as ex:
-            raise ex
-
-    # EXISTS BY ID
-    # -------------------------
-    @staticmethod
-    def exists_by_id(ingredient_id):
-        try:
-            with SQLServerConnection.get_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT 1 FROM Ingredients WHERE Id = ?",
-                    ingredient_id
-                )
-                return cursor.fetchone() is not None
-        except Exception as ex:
-            raise ex
-
-    # EXISTS BY NAME (CASE/SPACE INSENSITIVE)
-    # -------------------------
-    @staticmethod
-    def exists_by_name(name, exclude_id=None):
-        try:
-            with SQLServerConnection.get_connection() as conn:
-                cursor = conn.cursor()
-                if exclude_id is None:
-                    cursor.execute(
-                        """
-                        SELECT 1
-                        FROM Ingredients
-                        WHERE LOWER(LTRIM(RTRIM(Name))) = LOWER(LTRIM(RTRIM(?)))
-                        """,
-                        name
-                    )
-                else:
-                    cursor.execute(
-                        """
-                        SELECT 1
-                        FROM Ingredients
-                        WHERE LOWER(LTRIM(RTRIM(Name))) = LOWER(LTRIM(RTRIM(?)))
-                          AND Id <> ?
-                        """,
-                        (name, exclude_id)
-                    )
-                return cursor.fetchone() is not None
+ 
         except Exception as ex:
             raise ex

@@ -147,10 +147,8 @@ class OrderProduct:
                 "status": op.status,
                 "created_at": op.created_at.isoformat() if op.created_at else None,
 
-                # 🔥 Nested product
                 "product": product.to_dict(),
 
-                # 🔥 Nested ingredients
                 "ingredients": ingredients
             }
 

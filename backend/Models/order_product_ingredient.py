@@ -17,7 +17,7 @@ class OrderProductIngredient:
         self._status = 1
         self._created_at = None
 
-        # constructors
+        # Constructors
         if len(args) == 1:
             self.load_by_id(args[0])
         elif len(args) == 6:
@@ -202,6 +202,18 @@ class OrderProductIngredient:
 
         return results
 
+    # TO JSON
+    # -------------------------
+    def to_json(self):
+        return json.dumps({
+            "id": self._id,
+            "order_product_id": self._order_product_id,
+            "product_ingredient_id": self._product_ingredient_id,
+            "quantity": self._quantity,
+            "status": self._status,
+            "created_at": self._created_at.isoformat() if self._created_at else None
+        })
+
     # ADD
     # -------------------------
     def add(self):
@@ -255,15 +267,3 @@ class OrderProductIngredient:
 
         except Exception as ex:
             raise ex
-
-    # TO JSON
-    # -------------------------
-    def to_json(self):
-        return json.dumps({
-            "id": self._id,
-            "order_product_id": self._order_product_id,
-            "product_ingredient_id": self._product_ingredient_id,
-            "quantity": self._quantity,
-            "status": self._status,
-            "created_at": self._created_at.isoformat() if self._created_at else None
-        })
