@@ -1,5 +1,6 @@
 import json
 from ..Infrastructure.SQLServerConnection import *
+from .product_ingredient import ProductIngredient
 
 class RecordNotFoundException(Exception):
     pass
@@ -126,6 +127,32 @@ class Product:
 
         except Exception as e:
             raise e
+
+    # GET BY ID (FULL DATA)
+    # -------------------------
+    @staticmethod
+    def get_by_id(product_id):
+        try:
+            with SQLServerConnection.get_connection() as conn:
+                p = Product(product_id)
+
+                ingredients = ProductIngredient.get_by_product_id(p.id, conn)
+
+                return {
+                    "id": p.id,
+                    "category_id": p.category_id,
+                    "name": p.name,
+                    "description": p.description,
+                    "image": p.image,
+                    "price": float(p.price),
+                    "status": p.status,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+
+                    "ingredients": ingredients
+                }
+
+        except Exception as ex:
+            raise ex
 
     # GET ALL
     # -------------------------

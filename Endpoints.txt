@@ -1,15 +1,12 @@
 FoodStack API endpoint map (canonical routes)
 
-Auth / Session
-- POST /api/login
-- POST /api/logout
-- GET  /api/session
-
 Users
 - GET  /api/users                 (staff only)
 - GET  /api/users/{id}            (self or staff)
 - POST /api/users                 (public signup -> role forced to customer)
 - PUT  /api/users/{id}            (self or staff; role/status only staff)
+- POST /api/login
+- POST /api/logout
 
 Categories
 - GET  /api/categories
@@ -22,7 +19,6 @@ Products
 - GET  /api/products/{id}
 - POST /api/products              (staff only)
 - PUT  /api/products/{id}         (staff only)
-- Response includes: `category_id`, `category_name`, `ingredient_links`
 
 Ingredients
 - GET  /api/ingredients
@@ -58,6 +54,3 @@ Order Product Ingredients
 - POST /api/order-product-ingredients
 - PUT  /api/order-product-ingredients/{id}
 
-Compatibility notes
-- Legacy singular routes are still supported for transition:
-  /api/user/{id}, /api/order/{id}, /api/order-product/{id}, etc.

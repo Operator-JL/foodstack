@@ -26,24 +26,21 @@ def get_all():
 @product_bp.route('/product/<int:product_id>', methods=['GET'])
 def get_product_by_id(product_id):
     try:
-        p = Product(product_id)
         return jsonify({
             "status": 0,
-            "data": p.to_dict()
+            "data": Product.get_by_id(product_id)
         })
- 
     except RecordNotFoundException as e:
         return jsonify({
             "status": 1,
             "errorMessage": str(e)
         })
- 
     except Exception as e:
         return jsonify({
             "status": 1,
             "errorMessage": str(e)
         })
- 
+
 # PUT
 # -------------------------
 @product_bp.route('/product', methods=['POST'])
