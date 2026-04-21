@@ -7,7 +7,6 @@ class RecordNotFoundException(Exception):
 # -------------------------
 # ATTRIBUTES
 # -------------------------
- 
 class Ingredient:
     def __init__(self, *args):
         self._id = 0

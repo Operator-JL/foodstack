@@ -48,7 +48,7 @@ def get_user_with_orders(user_id):
 @user_bp.route('/user', methods=['POST'])
 #@require_auth
 def create_user():
-        try:
+    try:
         data = request.get_json()
         u = User()
         u.name = data.get("name")

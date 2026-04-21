@@ -1,6 +1,5 @@
 import bcrypt
 import json
-
 from ..Infrastructure.SQLServerConnection import *
 from .order import Order
 
