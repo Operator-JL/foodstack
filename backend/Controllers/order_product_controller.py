@@ -23,6 +23,7 @@ def get_order_products():
             "errorMessage": str(e)
         })
 
+
 # GET BY ID
 # --------------------------
 @order_product_bp.route('/order-product/<int:id>', methods=['GET'])
@@ -38,6 +39,7 @@ def get_order_product_by_id(id):
             "status": 1,
             "errorMessage": str(e)
         })
+
 
 # GET BY ORDER ID
 # --------------------------
@@ -56,15 +58,17 @@ def get_order_products_by_order_id(order_id):
             "errorMessage": str(e)
         })
 
+
 # POST
 # --------------------------
 @order_product_bp.route('/order-product', methods=['POST'])
-#require_auth
+@order_product_bp.route('/order-products', methods=['POST'])
+#@require_auth
 def create_order_product():
     try:
-        data = request.get_json()
-        op = OrderProduct()
+        data = request.get_json() or {}
 
+        op = OrderProduct()
         op.order_id = data.get("order_id")
         op.product_id = data.get("product_id")
         op.quantity = data.get("quantity", 1)
@@ -86,13 +90,15 @@ def create_order_product():
             "errorMessage": str(e)
         })
 
+
 # PUT
 # --------------------------
 @order_product_bp.route('/order-product/<int:id>', methods=['PUT'])
+@order_product_bp.route('/order-products/<int:id>', methods=['PUT'])
 #@require_auth
 def update_order_product(id):
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         op = OrderProduct(id)
 
         op.order_id = data.get("order_id", op.order_id)

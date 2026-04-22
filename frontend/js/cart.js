@@ -297,6 +297,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     writeLocalOrderLog(current.slice(0, 50));
   }
 
+  function removeLocalOrderLogByRef(orderRef) {
+    const current = readLocalOrderLog();
+    const normalizedRef = normalizeText(orderRef);
+
+    const filtered = current.filter((entry) => {
+      const entryRef = normalizeText(entry && (entry.orderRef || entry.id));
+      return entryRef !== normalizedRef;
+    });
+
+    writeLocalOrderLog(filtered);
+  }
+
   function normalizeStatusLabel(value) {
     const text = normalizeText(value).toLowerCase();
 
@@ -485,15 +497,24 @@ document.addEventListener('DOMContentLoaded', async () => {
       );
     }
 
-    const combined = apiHistory
-      .concat(localLogs)
-      .sort((a, b) => {
-        const aTime = new Date(a.createdAt || 0).getTime() || 0;
-        const bTime = new Date(b.createdAt || 0).getTime() || 0;
-        return bTime - aTime;
-      });
+    const baseHistory = apiHistory && apiHistory.length ? apiHistory : localLogs;
 
-    renderOrderHistory(combined, warningParts.join(' '));
+    const dedupedMap = new Map();
+    baseHistory.forEach((item) => {
+      const key = normalizeText(item.orderRef || item.id);
+      if (!key) return;
+      if (!dedupedMap.has(key)) {
+        dedupedMap.set(key, item);
+      }
+    });
+
+    const finalHistory = Array.from(dedupedMap.values()).sort((a, b) => {
+      const aTime = new Date(a.createdAt || 0).getTime() || 0;
+      const bTime = new Date(b.createdAt || 0).getTime() || 0;
+      return bTime - aTime;
+    });
+
+    renderOrderHistory(finalHistory, warningParts.join(' '));
   }
 
   async function resolveCreatedOrderId(userId, total) {
@@ -696,13 +717,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const failedLines = lineResults.filter((item) => !item.ok);
 
       if (failedLines.length === 0) {
-        appendLocalOrderLog({
-          ...localBase,
-          orderRef: `ORD-${orderId}`,
-          status: 'completed',
-          source: 'api',
-          details: 'Order and line items persisted through API.'
-        });
+        removeLocalOrderLogByRef(`ORD-${orderId}`);
 
         data.clearCart();
         render();

@@ -1,6 +1,4 @@
 from flask import jsonify, Blueprint, request
-import json
-
 from backend.Models.order import Order, RecordNotFoundException
 from ..Security.Auth import require_auth
 
@@ -9,7 +7,7 @@ order_bp = Blueprint('order_bp', __name__)
 # GET ALL
 # -------------------------
 @order_bp.route('/orders', methods=['GET'])
-#@require_auth
+# @require_auth
 def get_all():
     try:
         return jsonify({
@@ -22,10 +20,11 @@ def get_all():
             "errorMessage": str(e)
         })
 
+
 # GET BY ID
 # -------------------------
 @order_bp.route('/order/<int:id>', methods=['GET'])
-#@require_auth
+# @require_auth
 def get_by_id(id):
     try:
         return jsonify({
@@ -43,10 +42,11 @@ def get_by_id(id):
             "errorMessage": str(e)
         })
 
+
 # GET BY USER ID
 # -------------------------
 @order_bp.route('/orders/user/<int:user_id>', methods=['GET'])
-#@require_auth
+# @require_auth
 def get_by_user_id(user_id):
     try:
         return jsonify({
@@ -59,13 +59,16 @@ def get_by_user_id(user_id):
             "errorMessage": str(e)
         })
 
+
 # POST
+# Soporta /order y /orders para no romper frontend viejo o nuevo
 # -------------------------
 @order_bp.route('/order', methods=['POST'])
-#@require_auth
+@order_bp.route('/orders', methods=['POST'])
+# @require_auth
 def create():
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
 
         o = Order()
         o.user_id = data.get("user_id")
@@ -88,13 +91,14 @@ def create():
             "errorMessage": str(e)
         })
 
+
 # PUT
 # -------------------------
 @order_bp.route('/order/<int:id>', methods=['PUT'])
-#@require_auth
+# @require_auth
 def update(id):
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
 
         o = Order(id)
         o.user_id = data.get("user_id", o.user_id)

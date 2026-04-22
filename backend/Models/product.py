@@ -1,9 +1,11 @@
 import json
-from ..Infrastructure.SQLServerConnection import *
+from ..Infrastructure.SQLServerConnection import SQLServerConnection
 from .product_ingredient import ProductIngredient
+
 
 class RecordNotFoundException(Exception):
     pass
+
 
 # -------------------------
 # ATTRIBUTES
@@ -31,7 +33,7 @@ class Product:
                 self._image,
                 self._price,
                 self._status,
-                self._created_at
+                self._created_at,
             ) = args
 
     # -------------------------
@@ -55,7 +57,7 @@ class Product:
 
     @name.setter
     def name(self, value):
-        self._name = value
+        self._name = value or ""
 
     @property
     def description(self):
@@ -63,7 +65,7 @@ class Product:
 
     @description.setter
     def description(self, value):
-        self._description = value
+        self._description = value or ""
 
     @property
     def image(self):
@@ -71,7 +73,7 @@ class Product:
 
     @image.setter
     def image(self, value):
-        self._image = value
+        self._image = value or ""
 
     @property
     def price(self):
@@ -79,7 +81,7 @@ class Product:
 
     @price.setter
     def price(self, value):
-        self._price = value
+        self._price = value if value is not None else 0.0
 
     @property
     def status(self):
@@ -87,7 +89,7 @@ class Product:
 
     @status.setter
     def status(self, value):
-        self._status = value
+        self._status = value if value is not None else 1
 
     @property
     def created_at(self):
@@ -103,11 +105,22 @@ class Product:
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT Id, Category_Id, Name, Description, Image, Price, Status, Created_At
-                    FROM Products
-                    WHERE Id = ?
-                """, (product_id,))
+                cursor.execute(
+                    """
+                    SELECT
+                        [Id],
+                        [Category_Id],
+                        [Name],
+                        [Description],
+                        [Image],
+                        [Price],
+                        [Status],
+                        [Created_At]
+                    FROM [dbo].[Products]
+                    WHERE [Id] = ?
+                    """,
+                    (product_id,),
+                )
 
                 row = cursor.fetchone()
 
@@ -122,7 +135,7 @@ class Product:
                     self._image,
                     self._price,
                     self._status,
-                    self._created_at
+                    self._created_at,
                 ) = row
 
         except Exception as e:
@@ -135,7 +148,6 @@ class Product:
         try:
             with SQLServerConnection.get_connection() as conn:
                 p = Product(product_id)
-
                 ingredients = ProductIngredient.get_by_product_id(p.id, conn)
 
                 return {
@@ -144,11 +156,10 @@ class Product:
                     "name": p.name,
                     "description": p.description,
                     "image": p.image,
-                    "price": float(p.price),
-                    "status": p.status,
+                    "price": float(p.price) if p.price is not None else 0.0,
+                    "status": bool(p.status),
                     "created_at": p.created_at.isoformat() if p.created_at else None,
-
-                    "ingredients": ingredients
+                    "ingredients": ingredients,
                 }
 
         except Exception as ex:
@@ -158,24 +169,31 @@ class Product:
     # -------------------------
     @staticmethod
     def get_all():
-        result = []
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT Id, Category_Id, Name, Description, Image, Price, Status, Created_At
-                    FROM Products
-                    WHERE Status = 1
-                    ORDER BY Name
-                """)
+                cursor.execute(
+                    """
+                    SELECT
+                        [Id],
+                        [Category_Id],
+                        [Name],
+                        [Description],
+                        [Image],
+                        [Price],
+                        [Status],
+                        [Created_At]
+                    FROM [dbo].[Products]
+                    WHERE [Status] = 1 OR [Status] = CAST(1 AS BIT)
+                    ORDER BY [Name]
+                    """
+                )
 
-                for row in cursor.fetchall():
-                    result.append(Product(*row))
+                rows = cursor.fetchall()
+                return [Product(*row) for row in rows]
 
         except Exception as ex:
-            print("error fetching products...", ex)
-
-        return result
+            raise ex
 
     # TO DICT
     # -------------------------
@@ -186,9 +204,9 @@ class Product:
             "name": self._name,
             "description": self._description,
             "image": self._image,
-            "price": float(self._price),
-            "status": self._status,
-            "created_at": self._created_at.isoformat() if self._created_at else None
+            "price": float(self._price) if self._price is not None else 0.0,
+            "status": bool(self._status),
+            "created_at": self._created_at.isoformat() if self._created_at else None,
         }
 
     # TO JSON
@@ -202,18 +220,22 @@ class Product:
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO Products (Category_Id, Name, Description, Image, Price, Status)
-                    OUTPUT INSERTED.Id
+                cursor.execute(
+                    """
+                    INSERT INTO [dbo].[Products]
+                        ([Category_Id], [Name], [Description], [Image], [Price], [Status])
+                    OUTPUT INSERTED.[Id]
                     VALUES (?, ?, ?, ?, ?, ?)
-                """, (
-                    self._category_id,
-                    self._name,
-                    self._description,
-                    self._image,
-                    self._price,
-                    self._status
-                ))
+                    """,
+                    (
+                        self._category_id,
+                        self._name,
+                        self._description,
+                        self._image,
+                        self._price,
+                        self._status,
+                    ),
+                )
 
                 self._id = cursor.fetchone()[0]
                 conn.commit()
@@ -229,22 +251,33 @@ class Product:
         try:
             with SQLServerConnection.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE Products
-                    SET Category_Id = ?, Name = ?, Description = ?, Image = ?, Price = ?, Status = ?
-                    WHERE Id = ?
-                """, (
-                    self._category_id,
-                    self._name,
-                    self._description,
-                    self._image,
-                    self._price,
-                    self._status,
-                    self._id
-                ))
+                cursor.execute(
+                    """
+                    UPDATE [dbo].[Products]
+                    SET
+                        [Category_Id] = ?,
+                        [Name] = ?,
+                        [Description] = ?,
+                        [Image] = ?,
+                        [Price] = ?,
+                        [Status] = ?
+                    WHERE [Id] = ?
+                    """,
+                    (
+                        self._category_id,
+                        self._name,
+                        self._description,
+                        self._image,
+                        self._price,
+                        self._status,
+                        self._id,
+                    ),
+                )
 
                 if cursor.rowcount == 0:
-                    raise RecordNotFoundException(f"Product with id {self._id} was not found.")
+                    raise RecordNotFoundException(
+                        f"Product with id {self._id} was not found."
+                    )
 
                 conn.commit()
 

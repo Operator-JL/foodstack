@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class SQLServerConnection:
     @staticmethod
     def get_connection():
@@ -28,23 +29,21 @@ class SQLServerConnection:
             )
 
         connectionString = (
-            "Driver={ODBC Driver 18 for SQL Server};"
-            f"SERVER=tcp:{server},1433;"
+            "DRIVER={ODBC Driver 17 for SQL Server};"
+            f"SERVER={server},1433;"
             f"DATABASE={database};"
             f"UID={username};"
             f"PWD={password};"
-            "TrustServerCertificate=no;"
             "Encrypt=yes;"
-            "Connection Timeout=30;"
+            "TrustServerCertificate=yes;"
+            "Timeout=30;"
         )
+
         try:
             connection = pyodbc.connect(connectionString)
-            connection.setencoding("utf8")
-            connection.setdecoding(pyodbc.SQL_CHAR, encoding="utf8")
-            connection.setdecoding(pyodbc.SQL_WCHAR, encoding="utf8")
         except Exception as ex:
-            raise ConnectionError(f"Could not connect to SQL server: {str(ex)}") from ex
+            raise ConnectionError(
+                f"Could not connect to SQL server: {str(ex)}"
+            ) from ex
+
         return connection
-
-
-
