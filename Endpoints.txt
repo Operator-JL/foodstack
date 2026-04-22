@@ -3,9 +3,12 @@ FoodStack API endpoint map (canonical routes)
 Users
 - GET  /api/users                 (staff only)
 - GET  /api/users/{id}            (self or staff)
-- POST /api/users                 (public signup -> role forced to customer)
+- POST /api/users                 (alias of /api/user)
+- POST /api/user                  (signup/create user)
 - PUT  /api/users/{id}            (self or staff; role/status only staff)
+- PUT  /api/user/{id}             (alias)
 - POST /api/login
+- GET  /api/session
 - POST /api/logout
 
 Categories

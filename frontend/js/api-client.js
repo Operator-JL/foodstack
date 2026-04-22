@@ -1,31 +1,9 @@
 (function () {
   const AUTH_TOKEN_KEY = 'foodstack-auth-token';
   const API_BASE_STORAGE_KEY = 'foodstack-api-base-url';
-  const DEMO_MODE_STORAGE_KEY = 'foodstack-demo-mode';
 
   function normalizeText(value) {
     return String(value || '').trim();
-  }
-
-  function normalizeBoolean(value, fallback) {
-    if (typeof value === 'boolean') {
-      return value;
-    }
-
-    const text = normalizeText(value).toLowerCase();
-    if (!text) {
-      return Boolean(fallback);
-    }
-
-    if (['1', 'true', 'yes', 'on'].includes(text)) {
-      return true;
-    }
-
-    if (['0', 'false', 'no', 'off'].includes(text)) {
-      return false;
-    }
-
-    return Boolean(fallback);
   }
 
   function normalizeCredentials(value, fallback) {
@@ -40,27 +18,6 @@
       return '';
     }
     return text.replace(/\/+$/, '');
-  }
-
-  function parseDemoModeFromUrl() {
-    const params = new URLSearchParams(window.location.search || '');
-    const flag = params.get('demo');
-    if (flag == null) {
-      return null;
-    }
-
-    const enabled = normalizeBoolean(flag, false);
-    window.localStorage.setItem(DEMO_MODE_STORAGE_KEY, enabled ? '1' : '0');
-    return enabled;
-  }
-
-  function readStoredDemoMode() {
-    const fromUrl = parseDemoModeFromUrl();
-    if (typeof fromUrl === 'boolean') {
-      return fromUrl;
-    }
-
-    return normalizeBoolean(window.localStorage.getItem(DEMO_MODE_STORAGE_KEY), false);
   }
 
   function resolveApiBaseUrl(runtimeOverride) {
@@ -127,6 +84,19 @@
     window.localStorage.removeItem(AUTH_TOKEN_KEY);
   }
 
+  function readJsonStorage(key) {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      return null;
+    }
+  }
+
   async function parseJsonSafe(response) {
     const text = await response.text();
     if (!text) {
@@ -141,16 +111,9 @@
   }
 
   const RUNTIME_OVERRIDE = window.FOODSTACK_RUNTIME_OVERRIDES || {};
-  const DEMO_MODE = readStoredDemoMode();
 
   const RUNTIME_CONFIG = {
     API_BASE_URL: resolveApiBaseUrl(RUNTIME_OVERRIDE),
-    DEV_FALLBACK_MODE: Object.hasOwn(RUNTIME_OVERRIDE, 'DEV_FALLBACK_MODE')
-      ? normalizeBoolean(RUNTIME_OVERRIDE.DEV_FALLBACK_MODE, false)
-      : DEMO_MODE,
-    ALLOW_DEMO_AUTH: Object.hasOwn(RUNTIME_OVERRIDE, 'ALLOW_DEMO_AUTH')
-      ? normalizeBoolean(RUNTIME_OVERRIDE.ALLOW_DEMO_AUTH, false)
-      : DEMO_MODE,
     REQUEST_CREDENTIALS: normalizeCredentials(
       RUNTIME_OVERRIDE.REQUEST_CREDENTIALS,
       'same-origin'
@@ -222,54 +185,78 @@
     return payload;
   }
 
-  function runtimeEnabled(flagName) {
-    return Boolean(RUNTIME_CONFIG[flagName]);
+  function isMissingEndpointError(error) {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+    return error.code === 'HTTP_404' || error.code === 'HTTP_405';
   }
 
-  function setDemoMode(enabled) {
-    const value = normalizeBoolean(enabled, false);
-    window.localStorage.setItem(DEMO_MODE_STORAGE_KEY, value ? '1' : '0');
-    return value;
+  async function requestWithFallback(paths, options) {
+    const routeList = Array.isArray(paths) ? paths.filter(Boolean) : [];
+    if (!routeList.length) {
+      throw new Error('No API routes were provided.');
+    }
+
+    let lastError = null;
+    for (let index = 0; index < routeList.length; index += 1) {
+      const path = routeList[index];
+      try {
+        return await request(path, options);
+      } catch (error) {
+        lastError = error;
+        const canRetry = index < routeList.length - 1 && isMissingEndpointError(error);
+        if (!canRetry) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError || new Error('API request failed.');
   }
 
-  function startDemoCustomerSession(overrides) {
-    const payload = {
-      id: 'demo-customer',
-      name: 'Demo',
-      lastname: 'User',
-      email: 'demo.customer@foodstack.local',
-      role: 'customer',
-      ...(overrides && typeof overrides === 'object' ? overrides : {})
-    };
+  async function resolveSessionFromStorageFallback() {
+    const adminSession = readJsonStorage('foodstack-admin-session');
+    const adminUser =
+      adminSession && typeof adminSession === 'object' ? adminSession.user : null;
+    const customerUser =
+      readJsonStorage('foodstack-user') || readJsonStorage('user');
 
-    window.localStorage.setItem('foodstack-user', JSON.stringify(payload));
-    window.localStorage.setItem('user', JSON.stringify(payload));
-    window.localStorage.removeItem('foodstack-admin-session');
-    clearAuthToken();
-    setDemoMode(true);
-    return payload;
-  }
+    const storedUser =
+      adminUser && typeof adminUser === 'object'
+        ? adminUser
+        : customerUser && typeof customerUser === 'object'
+          ? customerUser
+          : null;
 
-  function startDemoStaffSession(overrides) {
-    const user = {
-      id: 'demo-staff',
-      name: 'FoodStack Demo Staff',
-      email: 'demo.staff@foodstack.local',
-      role: 'admin',
-      ...(overrides && typeof overrides === 'object' ? overrides : {})
-    };
+    if (!storedUser) {
+      return null;
+    }
 
-    window.localStorage.setItem(
-      'foodstack-admin-session',
-      JSON.stringify({
-        user: user,
-        signedAt: new Date().toISOString(),
-        isDemo: true
-      })
-    );
-    clearAuthToken();
-    setDemoMode(true);
-    return user;
+    const userId = normalizeText(storedUser.id);
+    if (!userId) {
+      return storedUser;
+    }
+
+    try {
+      const userDetails = await requestWithFallback(
+        [`/users/${userId}`, `/user/${userId}`],
+        { auth: false }
+      );
+
+      if (!userDetails || typeof userDetails !== 'object') {
+        return storedUser;
+      }
+
+      return {
+        ...storedUser,
+        ...userDetails,
+        role: normalizeText(userDetails.role) || normalizeText(storedUser.role),
+        email: normalizeText(userDetails.email) || normalizeText(storedUser.email)
+      };
+    } catch (error) {
+      return storedUser;
+    }
   }
 
   const api = {
@@ -278,13 +265,16 @@
       return request('/users');
     },
     getUserById(userId) {
-      return request(`/users/${userId}`);
+      return requestWithFallback([`/users/${userId}`, `/user/${userId}`]);
     },
     createUser(payload) {
-      return request('/users', { method: 'POST', body: payload });
+      return requestWithFallback(['/users', '/user'], { method: 'POST', body: payload });
     },
     updateUser(userId, payload) {
-      return request(`/users/${userId}`, { method: 'PUT', body: payload });
+      return requestWithFallback([`/users/${userId}`, `/user/${userId}`], {
+        method: 'PUT',
+        body: payload
+      });
     },
     async login(payload) {
       const response = await request('/login', { method: 'POST', body: payload, auth: false });
@@ -300,35 +290,66 @@
         clearAuthToken();
       }
     },
-    getSession() {
-      return request('/session');
+    async getSession() {
+      try {
+        return await request('/session');
+      } catch (error) {
+        if (!isMissingEndpointError(error)) {
+          throw error;
+        }
+
+        const fallback = await resolveSessionFromStorageFallback();
+        if (fallback) {
+          return fallback;
+        }
+
+        throw error;
+      }
     },
     getCategories() {
       return request('/categories');
     },
     getCategoryById(categoryId) {
-      return request(`/categories/${categoryId}`);
+      return requestWithFallback([`/categories/${categoryId}`, `/category/${categoryId}`]);
     },
     getProducts() {
       return request('/products');
     },
     getProductById(productId) {
-      return request(`/products/${productId}`);
+      return requestWithFallback([`/products/${productId}`, `/product/${productId}`]);
     },
     createProduct(payload) {
-      return request('/products', { method: 'POST', body: payload });
+      return requestWithFallback(['/products', '/product'], { method: 'POST', body: payload });
+    },
+    updateProduct(productId, payload) {
+      return requestWithFallback([`/products/${productId}`, `/product/${productId}`], {
+        method: 'PUT',
+        body: payload
+      });
     },
     getIngredients() {
       return request('/ingredients');
     },
     getIngredientById(ingredientId) {
-      return request(`/ingredients/${ingredientId}`);
+      return requestWithFallback([`/ingredients/${ingredientId}`, `/ingredient/${ingredientId}`]);
     },
     getProductIngredients() {
       return request('/product-ingredients');
     },
     getProductIngredientById(recordId) {
-      return request(`/product-ingredients/${recordId}`);
+      return requestWithFallback([`/product-ingredients/${recordId}`, `/product-ingredient/${recordId}`]);
+    },
+    createProductIngredient(payload) {
+      return requestWithFallback(['/product-ingredients', '/product-ingredient'], {
+        method: 'POST',
+        body: payload
+      });
+    },
+    updateProductIngredient(recordId, payload) {
+      return requestWithFallback([`/product-ingredients/${recordId}`, `/product-ingredient/${recordId}`], {
+        method: 'PUT',
+        body: payload
+      });
     },
     getOrders() {
       return request('/orders');
@@ -337,13 +358,16 @@
       return request(`/orders/user/${userId}`);
     },
     getOrderById(orderId) {
-      return request(`/orders/${orderId}`);
+      return requestWithFallback([`/orders/${orderId}`, `/order/${orderId}`]);
     },
     updateOrder(orderId, payload) {
-      return request(`/orders/${orderId}`, { method: 'PUT', body: payload });
+      return requestWithFallback([`/orders/${orderId}`, `/order/${orderId}`], {
+        method: 'PUT',
+        body: payload
+      });
     },
     createOrder(payload) {
-      return request('/orders', { method: 'POST', body: payload });
+      return requestWithFallback(['/orders', '/order'], { method: 'POST', body: payload });
     },
     getOrderProducts() {
       return request('/order-products');
@@ -352,29 +376,37 @@
       return request(`/order-products/order/${orderId}`);
     },
     getOrderProductById(recordId) {
-      return request(`/order-products/${recordId}`);
+      return requestWithFallback([`/order-products/${recordId}`, `/order-product/${recordId}`]);
     },
     createOrderProduct(payload) {
-      return request('/order-products', { method: 'POST', body: payload });
+      return requestWithFallback(['/order-products', '/order-product'], {
+        method: 'POST',
+        body: payload
+      });
+    },
+    updateOrderProduct(recordId, payload) {
+      return requestWithFallback([`/order-products/${recordId}`, `/order-product/${recordId}`], {
+        method: 'PUT',
+        body: payload
+      });
     },
     createOrderProductIngredient(payload) {
-      return request('/order-product-ingredients', { method: 'POST', body: payload });
+      return requestWithFallback(['/order-product-ingredients', '/order-product-ingredient'], {
+        method: 'POST',
+        body: payload
+      });
     },
     getOrderProductIngredients() {
       return request('/order-product-ingredients');
     },
     getOrderProductIngredientById(recordId) {
-      return request(`/order-product-ingredients/${recordId}`);
+      return requestWithFallback([`/order-product-ingredients/${recordId}`, `/order-product-ingredient/${recordId}`]);
     }
   };
 
   window.FOODSTACK_API = api;
   window.FOODSTACK_RUNTIME = {
     ...RUNTIME_CONFIG,
-    isEnabled: runtimeEnabled,
-    setDemoMode: setDemoMode,
-    startDemoCustomerSession: startDemoCustomerSession,
-    startDemoStaffSession: startDemoStaffSession,
     readAuthToken: readAuthToken,
     clearAuthToken: clearAuthToken,
     saveAuthToken: saveAuthToken

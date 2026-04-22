@@ -25,6 +25,7 @@ def get_user():
 # GET BY USER ID
 # -------------------------
 @user_bp.route('/user/<int:user_id>', methods=['GET'])
+@user_bp.route('/users/<int:user_id>', methods=['GET'])
 #@require_auth
 def get_user_with_orders(user_id):
     try:
@@ -46,10 +47,17 @@ def get_user_with_orders(user_id):
 # POST
 # -------------------------
 @user_bp.route('/user', methods=['POST'])
+@user_bp.route('/users', methods=['POST'])
 #@require_auth
 def create_user():
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({
+                "status": 1,
+                "errorMessage": "Invalid payload. JSON body is required."
+            }), 400
+
         u = User()
         u.name = data.get("name")
         u.lastname = data.get("lastname")
@@ -77,7 +85,7 @@ def create_user():
 @user_bp.route("/login", methods=["POST"])
 def login():
     try:
-        data = request.get_json()
+        data = request.get_json(silent=True)
 
         if not data or "email" not in data or "password" not in data:
             return jsonify({
@@ -93,11 +101,12 @@ def login():
                 'errorMessage': "Invalid credentials."
             }), 401
         
-        token = generate_token(u.id)
+        token = generate_token(u.id, u.role)
 
         response = make_response(jsonify({
             "status": 0,
-            "user": json.loads(u.to_json())
+            "user": json.loads(u.to_json()),
+            "token": token
         }))
 
         response.set_cookie(
@@ -116,6 +125,30 @@ def login():
             "errorMessage": str(ex)
         }), 400
 
+# SESSION
+# -------------------------
+@user_bp.route("/session", methods=["GET"])
+@require_auth
+def get_session():
+    try:
+        user_id = int(getattr(request, "user_id", 0) or 0)
+        if user_id <= 0:
+            return jsonify({
+                "status": 1,
+                "errorMessage": "Invalid session."
+            }), 401
+
+        user = User(user_id)
+        return jsonify({
+            "status": 0,
+            "data": json.loads(user.to_json())
+        })
+    except Exception as ex:
+        return jsonify({
+            "status": 1,
+            "errorMessage": str(ex)
+        }), 401
+
 # LOGOUT
 # -------------------------
 @user_bp.route("/logout", methods=["POST"])
@@ -133,6 +166,7 @@ def logout():
 # PUT
 # -------------------------
 @user_bp.route('/user/<int:user_id>', methods=['PUT'])
+@user_bp.route('/users/<int:user_id>', methods=['PUT'])
 #@require_auth
 def update_user(user_id):
     try:
