@@ -1,5 +1,6 @@
 (function () {
   const CART_STORAGE_KEY = 'foodstack-cart';
+  const CART_CUSTOMIZATION_STORAGE_KEY = 'foodstack-cart-customizations';
   const FALLBACK_PRODUCT_IMAGE = 'assets/images/logo-foodstack.png';
 
   const state = {
@@ -63,6 +64,76 @@
     return normalized;
   }
 
+  function normalizeCustomizationOption(option) {
+    if (!option || typeof option !== 'object') {
+      return null;
+    }
+
+    const productIngredientId = normalizeText(
+      option.productIngredientId || option.product_ingredient_id || option.id
+    );
+    const ingredientId = normalizeText(option.ingredientId || option.ingredient_id);
+    const name = normalizeText(option.name || option.ingredientName || option.label);
+    const quantity = Math.max(0, Math.floor(normalizeNumber(option.quantity)));
+    const defaultQuantity = Math.max(
+      0,
+      Math.floor(normalizeNumber(option.defaultQuantity || option.default_ingredients))
+    );
+    const chargedQuantity = Math.max(
+      0,
+      Math.floor(normalizeNumber(option.chargedQuantity))
+    );
+    const extraPrice = normalizeNumber(option.extraPrice || option.extra_price);
+    const lineExtraTotal = normalizeNumber(option.lineExtraTotal || option.extra_total);
+
+    if (!productIngredientId && !ingredientId && !name) {
+      return null;
+    }
+
+    if (quantity <= 0 && defaultQuantity <= 0 && chargedQuantity <= 0) {
+      return null;
+    }
+
+    return {
+      productIngredientId: productIngredientId,
+      ingredientId: ingredientId,
+      name: name || 'Extra',
+      quantity: quantity,
+      defaultQuantity: defaultQuantity,
+      chargedQuantity: chargedQuantity,
+      extraPrice: extraPrice,
+      lineExtraTotal: lineExtraTotal
+    };
+  }
+
+  function normalizeCustomizationEntry(entry) {
+    if (!entry || typeof entry !== 'object') {
+      return null;
+    }
+
+    const productId = normalizeText(entry.productId || entry.product_id);
+
+    if (!productId) {
+      return null;
+    }
+
+    const options = (Array.isArray(entry.options) ? entry.options : [])
+      .map((option) => normalizeCustomizationOption(option))
+      .filter(Boolean);
+
+    return {
+      id: normalizeText(entry.id),
+      productId: productId,
+      productName: normalizeText(entry.productName || entry.product_name),
+      basePrice: normalizeNumber(entry.basePrice || entry.base_price),
+      finalPrice: normalizeNumber(entry.finalPrice || entry.final_price),
+      extraTotal: normalizeNumber(entry.extraTotal || entry.extras_total),
+      notes: normalizeText(entry.notes),
+      createdAt: normalizeText(entry.createdAt || entry.created_at) || new Date().toISOString(),
+      options: options
+    };
+  }
+
   function readCart() {
     const raw = window.localStorage.getItem(CART_STORAGE_KEY);
 
@@ -77,17 +148,77 @@
     }
   }
 
+  function readCartCustomizations() {
+    const raw = window.localStorage.getItem(CART_CUSTOMIZATION_STORAGE_KEY);
+
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      const items = Array.isArray(parsed) ? parsed : [];
+      return items
+        .map((item) => normalizeCustomizationEntry(item))
+        .filter(Boolean);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function writeCartCustomizations(items) {
+    const normalized = (Array.isArray(items) ? items : [])
+      .map((item) => normalizeCustomizationEntry(item))
+      .filter(Boolean);
+
+    if (!normalized.length) {
+      window.localStorage.removeItem(CART_CUSTOMIZATION_STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(
+      CART_CUSTOMIZATION_STORAGE_KEY,
+      JSON.stringify(normalized)
+    );
+  }
+
+  function pruneCartCustomizations(cartCandidate) {
+    const cart = normalizeCart(cartCandidate || readCart());
+    const remainingByProduct = { ...cart };
+    const current = readCartCustomizations();
+    const kept = [];
+
+    current.forEach((entry) => {
+      const productId = normalizeText(entry && entry.productId);
+      const remaining = Number(remainingByProduct[productId] || 0);
+
+      if (remaining <= 0) {
+        return;
+      }
+
+      kept.push(entry);
+      remainingByProduct[productId] = remaining - 1;
+    });
+
+    if (kept.length !== current.length) {
+      writeCartCustomizations(kept);
+    }
+  }
+
   function notifyCartChange() {
     window.dispatchEvent(new CustomEvent('foodstack:cart-updated'));
   }
 
   function writeCart(cart) {
-    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(normalizeCart(cart)));
+    const normalizedCart = normalizeCart(cart);
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(normalizedCart));
+    pruneCartCustomizations(normalizedCart);
     notifyCartChange();
   }
 
   function clearCart() {
     window.localStorage.removeItem(CART_STORAGE_KEY);
+    window.localStorage.removeItem(CART_CUSTOMIZATION_STORAGE_KEY);
     notifyCartChange();
   }
 
@@ -109,6 +240,38 @@
     }
 
     writeCart(cart);
+    return cart;
+  }
+
+  function addCustomizedToCart(productId, amount, customization) {
+    const key = String(productId || '').trim();
+    const quantity = Math.max(0, Math.floor(Number(amount || 0)));
+    const cart = addToCart(key, quantity);
+
+    if (!key || quantity <= 0 || !customization || typeof customization !== 'object') {
+      return cart;
+    }
+
+    const normalizedEntry = normalizeCustomizationEntry({
+      ...customization,
+      productId: key
+    });
+
+    if (!normalizedEntry) {
+      return cart;
+    }
+
+    const current = readCartCustomizations();
+
+    for (let index = 0; index < quantity; index += 1) {
+      current.unshift({
+        ...normalizedEntry,
+        id: `CUS-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${index}`,
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    writeCartCustomizations(current.slice(0, 250));
     return cart;
   }
 
@@ -416,9 +579,12 @@
     byCategory: byCategory,
     findProduct: findProduct,
     readCart: readCart,
+    readCartCustomizations: readCartCustomizations,
+    writeCartCustomizations: writeCartCustomizations,
     writeCart: writeCart,
     clearCart: clearCart,
     addToCart: addToCart,
+    addCustomizedToCart: addCustomizedToCart,
     cartCount: cartCount,
     money: money
   };

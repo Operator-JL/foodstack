@@ -336,6 +336,9 @@
     getProductIngredients() {
       return request('/product-ingredients');
     },
+    getProductIngredientsByProduct(productId) {
+      return request(`/product-ingredients/product/${productId}`);
+    },
     getProductIngredientById(recordId) {
       return requestWithFallback([`/product-ingredients/${recordId}`, `/product-ingredient/${recordId}`]);
     },
